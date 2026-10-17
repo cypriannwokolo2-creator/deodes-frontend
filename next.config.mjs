@@ -1,9 +1,22 @@
 /** @type {import('@sentry/nextjs').withSentryConfig} */
-const { withSentryConfig } = await import("@sentry/nextjs")
-const withBundleAnalyzer = (await import("@next/bundle-analyzer")).default({
-  enabled: process.env.ANALYZE === "true",
-  openAnalyzer: false,
-})
+// Both wrappers below are dev-only packages, imported defensively: the prod
+// image prunes devDependencies, and a missing package degrades to a no-op
+// wrapper (identical to the disabled state — no behavior change).
+let withSentryConfig = (/** @type {any} */ (c) => c)
+try {
+  withSentryConfig = (await import("@sentry/nextjs")).withSentryConfig
+} catch {
+  /* devDeps pruned in prod image; Sentry wrapping unavailable */
+}
+let withBundleAnalyzer = (/** @type {any} */ (c) => c)
+try {
+  withBundleAnalyzer = (await import("@next/bundle-analyzer")).default({
+    enabled: process.env.ANALYZE === "true",
+    openAnalyzer: false,
+  })
+} catch {
+  /* devDeps pruned in prod image; analyzer unavailable */
+}
 
 import { API_CSP } from "./src/lib/security/api-csp.mjs"
 import { CSP_REPORT_PATH, CSP_REPORTING_GROUP } from "./src/lib/security/csp-report-paths.mjs"
