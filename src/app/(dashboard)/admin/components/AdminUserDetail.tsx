@@ -9,6 +9,8 @@ import {
   useAdminFreezeAction,
   type AdminUserDetail as Detail,
 } from "@/hooks/use-admin"
+import { AdminUserActivity } from "./AdminUserActivity"
+import { AdminUserProfile } from "./AdminUserProfile"
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -48,12 +50,7 @@ export function AdminUserDetail({ userId, onClose }: { userId: string | null; on
         <p className="mt-3 text-sm text-muted-foreground">Couldn&apos;t load this user.</p>
       ) : (
         <div className="mt-2 divide-y divide-dashed divide-border">
-          <Row label="Account">
-            {d.user.displayName ?? formatAddress(d.user.walletAddress)}{" "}
-            <span className="font-mono text-xs text-muted-foreground">
-              · {d.user.role ?? "user"} · DeoScore {d.user.moiScore ?? "—"}
-            </span>
-          </Row>
+          <AdminUserProfile user={d.user} />
           <Row label="Wallets">
             {(d.wallets ?? []).length === 0 ? (
               <span className="text-muted-foreground">None</span>
@@ -136,6 +133,7 @@ export function AdminUserDetail({ userId, onClose }: { userId: string | null; on
               <LockOpen className="h-3.5 w-3.5" /> Unfreeze
             </button>
           </div>
+          <AdminUserActivity userId={userId} enabled />
         </div>
       )}
     </section>

@@ -14,6 +14,11 @@ import { AdminCircles } from "./components/AdminCircles"
 import { AdminCommunities } from "./components/AdminCommunities"
 import { AdminFrozen } from "./components/AdminFrozen"
 import { AdminTickets } from "./components/AdminTickets"
+import { AdminDeleted } from "./components/AdminDeleted"
+import { AdminInspect } from "./components/AdminInspect"
+import { AdminAuditLog } from "./components/AdminAuditLog"
+import { AdminFlags } from "./components/AdminFlags"
+import { AdminJobs } from "./components/AdminJobs"
 
 const PAGE_LIMIT = 20
 
@@ -121,7 +126,7 @@ export default function AdminPage() {
         </section>
       ) : (
         <>
-          <AdminStats metrics={metricsQuery.data} loading={metricsQuery.isLoading} />
+          <AdminStats metrics={metricsQuery.data} loading={metricsQuery.isLoading} showRecalculate />
           <div className="h-px bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" aria-hidden="true" />
           <AdminUsers
             users={usersQuery.data?.users ?? []}
@@ -140,6 +145,11 @@ export default function AdminPage() {
           <AdminCommunities enabled={isAdmin} />
           <AdminFrozen enabled={isAdmin} />
           <AdminTickets enabled={isAdmin} />
+          <AdminDeleted enabled={isAdmin} />
+          <AdminInspect enabled={isAdmin} />
+          <AdminAuditLog enabled={isAdmin} />
+          <AdminFlags enabled={isAdmin} />
+          <AdminJobs enabled={isAdmin} />
         </>
       )}
     </div>

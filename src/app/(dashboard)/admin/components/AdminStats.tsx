@@ -1,12 +1,13 @@
 "use client"
 
-import { Users, CircleDot, Activity, Coins } from "lucide-react"
+import { Users, CircleDot, Activity, Coins, RefreshCw } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { AdminMetrics } from "@/hooks/use-admin"
+import { useAdminRecalculateScores, type AdminMetrics } from "@/hooks/use-admin"
 
 interface AdminStatsProps {
   metrics: AdminMetrics | null | undefined
   loading: boolean
+  showRecalculate?: boolean
 }
 
 function formatVolume(value: number | undefined): string {
@@ -14,7 +15,8 @@ function formatVolume(value: number | undefined): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 })
 }
 
-export function AdminStats({ metrics, loading }: AdminStatsProps) {
+export function AdminStats({ metrics, loading, showRecalculate }: AdminStatsProps) {
+  const recalc = useAdminRecalculateScores()
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Loading platform stats">
@@ -32,6 +34,21 @@ export function AdminStats({ metrics, loading }: AdminStatsProps) {
 
   return (
     <section aria-label="Platform stats">
+      {showRecalculate ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-4 border-l-aurora-violet pl-3">
+          <p className="font-mono text-xs text-muted-foreground">
+            Scores recompute on every confirmed contribution — use this to backfill history.
+          </p>
+          <button
+            type="button"
+            disabled={recalc.isPending}
+            onClick={() => recalc.mutate({})}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:border-amber-400/60 disabled:opacity-50"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> {recalc.isPending ? "Recalculating…" : "Recalculate scores"}
+          </button>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon

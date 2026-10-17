@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AxiosError } from "axios"
-import { get, getErrorMessage, patch, post } from "@/lib/api-client"
+import { get, getErrorMessage, patch, post, del } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query-keys"
 import { useUIStore } from "@/stores/ui-store"
 import type { ApiResponse, PaginationMeta } from "@/types"
@@ -19,9 +19,16 @@ export interface AdminUser {
   id: string
   walletAddress: string
   email?: string | null
+  phone?: string | null
+  username?: string | null
   displayName?: string | null
   role?: string
   moiScore?: number
+  countryCode?: string | null
+  preferredLanguage?: string | null
+  totpEnabled?: boolean
+  emailVerified?: boolean
+  sessionTtlMinutes?: number
   createdAt?: string
 }
 
@@ -353,6 +360,39 @@ export function useAdminTicketAction() {
   })
 }
 
+/** Recompute DeoScores (POST /admin/reputation/recalculate). No target =
+ * whole user base; pass userId for one account (also used after manual
+ * review). Refreshes the aggregates the overview reads. */
+export function useAdminRecalculateScores() {
+  const queryClient = useQueryClient()
+  const addToast = useAdminToast()
+  return useMutation({
+    mutationFn: async ({ userId }: { userId?: string }): Promise<{ updated: number; failed: number; score?: number }> => {
+      const suffix = userId ? `?user_id=${encodeURIComponent(userId)}` : ""
+      const response = await post<ApiResponse<{ updated: number; failed: number; score?: number }>>(
+        `/admin/reputation/recalculate${suffix}`,
+        {},
+      )
+      return {
+        updated: response.data?.updated ?? 0,
+        failed: response.data?.failed ?? 0,
+        score: response.data?.score,
+      }
+    },
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.metrics() })
+      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      addToast({
+        type: result.failed > 0 ? "error" : "success",
+        title: result.failed > 0 ? `Updated ${result.updated}, ${result.failed} failed` : `Scores updated (${result.updated})`,
+      })
+    },
+    onError: (err: unknown) => {
+      addToast({ type: "error", title: "Recalculation failed", description: getErrorMessage(err) })
+    },
+  })
+}
+
 /** Full moderation view of one user (GET /admin/users/:id). */
 export function useAdminUserDetail(id: string | null, enabled: boolean) {
   return useQuery({
@@ -373,5 +413,226 @@ export function useAdminUserDetail(id: string | null, enabled: boolean) {
     enabled: enabled && id !== null,
     staleTime: 15_000,
     retry: false,
+  })
+}
+
+export interface AdminDeletedUsersResult {
+  users: AdminUser[]
+  meta: PaginationMeta
+}
+
+/** Soft-deleted user directory (GET /admin/users/deleted). */
+export function useAdminDeletedUsers(
+  filters: { search?: string; page?: number; limit?: number },
+  enabled: boolean,
+) {
+  const { search = "", page = 1, limit = 20 } = filters
+  return useQuery({
+    queryKey: queryKeys.admin.deleted({ search, page, limit }),
+    queryFn: async (): Promise<AdminDeletedUsersResult> => {
+      const params = new URLSearchParams()
+      if (search) params.set("search", search)
+      params.set("page", String(page))
+      params.set("limit", String(limit))
+      const response = await get<ApiResponse<{ users: AdminUser[] }>>(
+        `/admin/users/deleted?${params.toString()}`,
+      )
+      return {
+        users: response.data?.users ?? [],
+        meta: response.meta ?? { ...EMPTY_META, page, limit },
+      }
+    },
+    enabled,
+    staleTime: 30_000,
+    retry: false,
+  })
+}
+
+/** Restore a soft-deleted user (POST /admin/users/:id/restore). */
+export function useAdminRestoreUser() {
+  const queryClient = useQueryClient()
+  const addToast = useAdminToast()
+  return useMutation({
+    mutationFn: ({ userId }: { userId: string }) =>
+      post(`/admin/users/${userId}/restore`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "deleted-users"] })
+      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      addToast({ type: "success", title: "User restored" })
+    },
+    onError: (err: unknown) => {
+      addToast({ type: "error", title: "Restore failed", description: getErrorMessage(err) })
+    },
+  })
+}
+
+export interface CircleInspectResult {
+  circle: { id: string; name?: string; status: string; currentRound?: number } & Record<string, unknown>
+  members: { userId?: string; user_id?: string; status?: string; role?: string }[] & Record<string, unknown>
+  memberCount: number
+  currentRound?: number
+  status: string
+}
+
+/** Read-only circle inspection (GET /admin/circles/:id/inspect). Audited server-side. */
+export function useAdminCircleInspect(id: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.admin.inspect(id ?? ""),
+    queryFn: async (): Promise<CircleInspectResult | null> => {
+      if (!id) return null
+      const response = await get<ApiResponse<CircleInspectResult>>(`/admin/circles/${id}/inspect`)
+      if (!response.data?.circle) return null
+      return response.data
+    },
+    enabled: enabled && id !== null,
+    staleTime: 15_000,
+    retry: false,
+  })
+}
+
+export interface AdminAuditEntry {
+  id: string
+  actorId: string
+  action: string
+  resourceType: string
+  resourceId?: { String?: string; Valid?: boolean } | string | null
+  details?: unknown
+  ipAddress?: { String?: string; Valid?: boolean } | string | null
+  createdAt: string
+}
+
+export interface AdminAuditFilters {
+  resource_type?: string
+  action?: string
+  actor_id?: string
+  from?: string
+  to?: string
+  page?: number
+  limit?: number
+}
+
+/** Paginated audit trail (GET /admin/audit-log). */
+export function useAdminAuditLog(filters: AdminAuditFilters, enabled: boolean) {
+  const { page = 1, limit = 20 } = filters
+  return useQuery({
+    queryKey: queryKeys.admin.audit(filters),
+    queryFn: async (): Promise<{ entries: AdminAuditEntry[]; meta: PaginationMeta }> => {
+      const params = new URLSearchParams()
+      for (const k of ["resource_type", "action", "actor_id", "from", "to"] as const) {
+        if (filters[k]) params.set(k, String(filters[k]))
+      }
+      params.set("page", String(page))
+      params.set("limit", String(limit))
+      const response = await get<ApiResponse<{ entries: AdminAuditEntry[] }>>(
+        `/admin/audit-log?${params.toString()}`,
+      )
+      return {
+        entries: response.data?.entries ?? [],
+        meta: response.meta ?? { ...EMPTY_META, page, limit },
+      }
+    },
+    enabled,
+    staleTime: 15_000,
+    retry: false,
+  })
+}
+
+export interface FeatureFlag {
+  id?: number
+  flag: string
+  enabled: boolean
+  value?: boolean
+  description?: string
+  updatedAt?: string
+}
+
+/** Feature flag directory (GET /admin/feature-flags). */
+export function useAdminFeatureFlags(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.admin.flags(),
+    queryFn: async (): Promise<FeatureFlag[]> => {
+      const response = await get<ApiResponse<{ flags: FeatureFlag[] }>>("/admin/feature-flags")
+      const raw = response.data?.flags ?? []
+      return raw.map((f) => ({ ...f, enabled: f.enabled ?? f.value ?? false }))
+    },
+    enabled,
+    staleTime: 15_000,
+    retry: false,
+  })
+}
+
+/** Create/update or delete a feature flag (POST / DELETE /admin/feature-flags). */
+export function useAdminFlagAction() {
+  const queryClient = useQueryClient()
+  const addToast = useAdminToast()
+  const set = useMutation({
+    mutationFn: ({ flag, value, description }: { flag: string; value: boolean; description?: string }) =>
+      post(`/admin/feature-flags`, { flag, value, description }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.flags() })
+      addToast({ type: "success", title: "Flag saved" })
+    },
+    onError: (err: unknown) => {
+      addToast({ type: "error", title: "Flag save failed", description: getErrorMessage(err) })
+    },
+  })
+  const remove = useMutation({
+    mutationFn: ({ flag }: { flag: string }) =>
+      del(`/admin/feature-flags/${encodeURIComponent(flag)}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.flags() })
+      addToast({ type: "success", title: "Flag deleted" })
+    },
+    onError: (err: unknown) => {
+      addToast({ type: "error", title: "Flag delete failed", description: getErrorMessage(err) })
+    },
+  })
+  return { set, remove }
+}
+
+export interface DeadLetterJob {
+  id: string
+  queue_name?: string
+  queueName?: string
+  status?: string
+  retries_count?: number
+  retriesCount?: number
+  max_retries?: number
+  last_error?: { String?: string; Valid?: boolean } | string | null
+  created_at?: string
+  createdAt?: string
+  updated_at?: string
+}
+
+/** Dead-letter queue (GET /admin/jobs/dead-letter). */
+export function useAdminDeadLetterJobs(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.admin.jobs(),
+    queryFn: async (): Promise<DeadLetterJob[]> => {
+      const response = await get<ApiResponse<{ dead_letter_jobs: DeadLetterJob[] }>>(
+        "/admin/jobs/dead-letter",
+      )
+      return response.data?.dead_letter_jobs ?? []
+    },
+    enabled,
+    staleTime: 15_000,
+    retry: false,
+  })
+}
+
+/** Requeue a dead-letter job (POST /admin/jobs/dead-letter/:id/retry). */
+export function useAdminRetryJob() {
+  const queryClient = useQueryClient()
+  const addToast = useAdminToast()
+  return useMutation({
+    mutationFn: ({ jobId }: { jobId: string }) =>
+      post(`/admin/jobs/dead-letter/${encodeURIComponent(jobId)}/retry`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.jobs() })
+      addToast({ type: "success", title: "Job requeued" })
+    },
+    onError: (err: unknown) => {
+      addToast({ type: "error", title: "Retry failed", description: getErrorMessage(err) })
+    },
   })
 }

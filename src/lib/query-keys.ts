@@ -86,6 +86,13 @@ export const queryKeys = {
     tickets: (filters?: { status?: string; page?: number; limit?: number }) =>
       ["admin", "tickets", filters?.status, filters?.page, filters?.limit] as const,
     userDetail: (id: string) => ["admin", "user", id] as const,
+    deleted: (filters?: { search?: string; page?: number; limit?: number }) =>
+      ["admin", "deleted-users", filters?.search, filters?.page, filters?.limit] as const,
+    inspect: (id: string) => ["admin", "circle-inspect", id] as const,
+    audit: (filters?: { resource_type?: string; action?: string; actor_id?: string; from?: string; to?: string; page?: number; limit?: number }) =>
+      ["admin", "audit", filters?.resource_type, filters?.action, filters?.actor_id, filters?.from, filters?.to, filters?.page, filters?.limit] as const,
+    flags: () => ["admin", "feature-flags"] as const,
+    jobs: () => ["admin", "dead-letter-jobs"] as const,
   },
   savings: {
     all: ["savings-goals"] as const,

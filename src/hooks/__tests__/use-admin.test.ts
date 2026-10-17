@@ -1,8 +1,18 @@
 import { renderHook, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi, beforeEach } from "vitest"
 import { AxiosError } from "axios"
-import { get } from "@/lib/api-client"
-import { isAdminRole, useAdminMetrics, useAdminUsers } from "@/hooks/use-admin"
+import { get, post } from "@/lib/api-client"
+import {
+  isAdminRole,
+  useAdminMetrics,
+  useAdminUsers,
+  useAdminDeletedUsers,
+  useAdminCircleInspect,
+  useAdminAuditLog,
+  useAdminFeatureFlags,
+  useAdminDeadLetterJobs,
+  useAdminRecalculateScores,
+} from "@/hooks/use-admin"
 import { createQueryWrapper } from "./test-utils"
 
 vi.mock("@/lib/api-client", () => ({
@@ -13,6 +23,10 @@ vi.mock("@/lib/api-client", () => ({
 }))
 
 const mockedGet = vi.mocked(get)
+
+beforeEach(() => {
+  mockedGet.mockReset()
+})
 
 describe("isAdminRole", () => {
   it("grants only the exact admin role", () => {
@@ -129,5 +143,151 @@ describe("useAdminUsers", () => {
 
     expect(result.current.fetchStatus).toBe("idle")
     expect(mockedGet).not.toHaveBeenCalled()
+  })
+})
+
+describe("useAdminDeletedUsers", () => {
+  it("fetches soft-deleted users", async () => {
+    mockedGet.mockResolvedValue({
+      data: { users: [{ id: "u9", walletAddress: "0x9", role: "user" }] },
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminDeletedUsers({}, true), {
+      wrapper: QueryWrapper,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockedGet).toHaveBeenCalledWith("/admin/users/deleted?page=1&limit=20")
+    expect(result.current.data?.users).toHaveLength(1)
+  })
+
+  it("stays idle for non-admins", () => {
+    mockedGet.mockClear()
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminDeletedUsers({}, false), {
+      wrapper: QueryWrapper,
+    })
+
+    expect(result.current.fetchStatus).toBe("idle")
+    expect(mockedGet).not.toHaveBeenCalled()
+  })
+})
+
+describe("useAdminRecalculateScores", () => {
+  it("posts to the recalculate endpoint for the whole base", async () => {
+    const mockedPost = vi.mocked(post)
+    mockedPost.mockResolvedValue({ data: { updated: 12, failed: 1 } })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminRecalculateScores(), {
+      wrapper: QueryWrapper,
+    })
+
+    let out: unknown
+    await result.current.mutateAsync({}).then((r) => { out = r })
+    expect(mockedPost).toHaveBeenCalledWith("/admin/reputation/recalculate", {})
+    expect(out).toMatchObject({ updated: 12, failed: 1 })
+  })
+
+  it("targets one user with a query param", async () => {
+    const mockedPost = vi.mocked(post)
+    mockedPost.mockResolvedValue({ data: { updated: 1, failed: 0, score: 420 } })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminRecalculateScores(), {
+      wrapper: QueryWrapper,
+    })
+
+    let out: unknown
+    await result.current.mutateAsync({ userId: "u-1" }).then((r) => { out = r })
+    expect(mockedPost).toHaveBeenCalledWith("/admin/reputation/recalculate?user_id=u-1", {})
+    expect(out).toMatchObject({ updated: 1, score: 420 })
+  })
+})
+
+describe("useAdminCircleInspect", () => {
+  it("returns null without an id", async () => {
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminCircleInspect(null, true), {
+      wrapper: QueryWrapper,
+    })
+
+    expect(result.current.fetchStatus).toBe("idle")
+    expect(mockedGet).not.toHaveBeenCalled()
+  })
+
+  it("fetches circle state by id", async () => {
+    mockedGet.mockResolvedValue({
+      data: { circle: { id: "c1", status: "active" }, members: [], memberCount: 0, status: "active" },
+    })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminCircleInspect("c1", true), {
+      wrapper: QueryWrapper,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockedGet).toHaveBeenCalledWith("/admin/circles/c1/inspect")
+    expect(result.current.data?.circle.id).toBe("c1")
+  })
+})
+
+describe("useAdminAuditLog", () => {
+  it("fetches entries with filters", async () => {
+    mockedGet.mockResolvedValue({
+      data: { entries: [{ id: "a1", actorId: "u1", action: "user.restored", resourceType: "user", createdAt: new Date().toISOString() }] },
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(
+      () => useAdminAuditLog({ action: "user.restored", page: 1, limit: 20 }, true),
+      { wrapper: QueryWrapper },
+    )
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockedGet).toHaveBeenCalledWith("/admin/audit-log?action=user.restored&page=1&limit=20")
+    expect(result.current.data?.entries).toHaveLength(1)
+  })
+})
+
+describe("useAdminFeatureFlags", () => {
+  it("normalizes value fallback to enabled", async () => {
+    mockedGet.mockResolvedValue({
+      data: { flags: [{ flag: "x", value: true }, { flag: "y", enabled: false }] },
+    })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminFeatureFlags(true), {
+      wrapper: QueryWrapper,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockedGet).toHaveBeenCalledWith("/admin/feature-flags")
+    expect(result.current.data?.[0].enabled).toBe(true)
+    expect(result.current.data?.[1].enabled).toBe(false)
+  })
+})
+
+describe("useAdminDeadLetterJobs", () => {
+  it("returns snake_case dead_letter_jobs", async () => {
+    mockedGet.mockResolvedValue({
+      data: { dead_letter_jobs: [{ id: "j1", queue_name: "sends", status: "dead_letter" }] },
+    })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminDeadLetterJobs(true), {
+      wrapper: QueryWrapper,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockedGet).toHaveBeenCalledWith("/admin/jobs/dead-letter")
+    expect(result.current.data).toHaveLength(1)
+  })
+
+  it("returns empty list when envelope is missing", async () => {
+    mockedGet.mockResolvedValue({ data: undefined })
+    const { QueryWrapper } = createQueryWrapper()
+    const { result } = renderHook(() => useAdminDeadLetterJobs(true), {
+      wrapper: QueryWrapper,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual([])
   })
 })

@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatAddress } from "@/lib/formatters"
+import { cn } from "@/lib/cn"
 import type { AdminUser } from "@/hooks/use-admin"
 
 interface AdminUsersProps {
@@ -70,34 +71,50 @@ export function AdminUsers({ users, total, loading, search, onSearch, page, onPa
         <>
           <ul className="mt-4 divide-y divide-dashed divide-border">
             {users.map((u) => (
-              <li
-                key={u.id}
-                className="flex items-center gap-3 border-l-2 border-l-transparent py-3 pl-3 transition-colors hover:border-l-amber-400"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground/10 font-mono text-xs font-bold text-foreground">
-                  {(u.displayName?.charAt(0) ?? u.walletAddress.slice(0, 2)).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  {onSelect ? (
-                    <button
-                      type="button"
-                      onClick={() => onSelect(u.id)}
-                      aria-label={`Inspect ${u.displayName ?? u.walletAddress}`}
-                      className={`truncate text-sm font-medium hover:text-amber-400 hover:underline ${selectedId === u.id ? "text-amber-400" : "text-foreground"}`}
-                    >
-                      {u.displayName ?? formatAddress(u.walletAddress)}
-                    </button>
-                  ) : (
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {u.displayName ?? formatAddress(u.walletAddress)}
-                    </p>
-                  )}
-                  <p className="truncate font-mono text-xs text-muted-foreground">
-                    {formatAddress(u.walletAddress)}
-                    {u.moiScore !== undefined ? ` · DeoScore ${u.moiScore}` : ""}
-                  </p>
-                </div>
-                <RolePill role={u.role} />
+              <li key={u.id}>
+                {onSelect ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelect(u.id)}
+                    aria-expanded={selectedId === u.id}
+                    aria-label={`Inspect ${u.displayName ?? u.walletAddress}`}
+                    className={cn(
+                      "flex w-full items-center gap-3 border-l-2 py-3 pl-3 text-left transition-colors hover:border-l-amber-400 hover:bg-white/[0.02]",
+                      selectedId === u.id ? "border-l-amber-400 bg-amber-400/5" : "border-l-transparent",
+                    )}
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground/10 font-mono text-xs font-bold text-foreground">
+                      {(u.displayName?.charAt(0) ?? u.walletAddress.slice(0, 2)).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {u.displayName ?? formatAddress(u.walletAddress)}
+                      </p>
+                      <p className="truncate font-mono text-xs text-muted-foreground">
+                        {formatAddress(u.walletAddress)}
+                        {u.moiScore !== undefined ? ` · DeoScore ${u.moiScore}` : ""}
+                      </p>
+                    </div>
+                    <RolePill role={u.role} />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 border-l-2 border-l-transparent py-3 pl-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground/10 font-mono text-xs font-bold text-foreground">
+                      {(u.displayName?.charAt(0) ?? u.walletAddress.slice(0, 2)).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {u.displayName ?? formatAddress(u.walletAddress)}
+                      </p>
+                      <p className="truncate font-mono text-xs text-muted-foreground">
+                        {formatAddress(u.walletAddress)}
+                        {u.moiScore !== undefined ? ` · DeoScore ${u.moiScore}` : ""}
+                      </p>
+                    </div>
+                    <RolePill role={u.role} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

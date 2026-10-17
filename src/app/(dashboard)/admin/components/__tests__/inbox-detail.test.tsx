@@ -28,6 +28,7 @@ vi.mock("@/hooks/use-admin", () => ({
     isError: false,
   }),
   useAdminFreezeAction: () => ({ mutate, isPending: false }),
+  useAdminAuditLog: () => ({ data: { entries: [], meta: { total: 0 } }, isLoading: false }),
 }))
 
 describe("Admin support inbox + user detail", () => {
