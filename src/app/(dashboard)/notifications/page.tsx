@@ -25,6 +25,7 @@ import {
   Square,
 } from "lucide-react";
 import { useNotifications } from "@/hooks/use-notifications";
+import { isSafeAppLink } from "@/lib/slug-guard";
 import { useWsState } from "@/hooks/use-ws-state";
 import {
   TYPE_FILTERS,
@@ -50,6 +51,9 @@ const iconMap: Record<string, React.ReactNode> = {
   circle: <CircleDot className="h-4 w-4" />,
   circle_joined: <UserPlus className="h-4 w-4" />,
   circle_completed: <CheckCheck className="h-4 w-4" />,
+  transfer_confirmed: <CheckCheck className="h-4 w-4" />,
+  transfer_failed: <TriangleAlert className="h-4 w-4" />,
+  transfer_received: <ArrowDown className="h-4 w-4" />,
   system: <Info className="h-4 w-4" />,
   warning: <TriangleAlert className="h-4 w-4" />,
   penalty: <Shield className="h-4 w-4" />,
@@ -63,6 +67,9 @@ const gradientMap: Record<string, string> = {
   circle: "from-aurora-violet/30 to-fuchsia-500/30",
   circle_joined: "from-aurora-violet/30 to-fuchsia-500/30",
   circle_completed: "from-aurora-violet/30 to-fuchsia-500/30",
+  transfer_confirmed: "from-emerald-500/30 to-green-600/30",
+  transfer_failed: "from-red-500/30 to-amber-500/30",
+  transfer_received: "from-aurora-indigo/30 to-aurora-violet/30",
   system: "from-white/5 to-white/10",
   warning: "from-red-500/30 to-amber-500/30",
   penalty: "from-red-500/30 to-amber-500/30",
@@ -76,6 +83,9 @@ const iconColorMap: Record<string, string> = {
   circle: "text-fuchsia-400",
   circle_joined: "text-fuchsia-400",
   circle_completed: "text-fuchsia-400",
+  transfer_confirmed: "text-emerald-400",
+  transfer_failed: "text-red-400",
+  transfer_received: "text-aurora-violet",
   system: "text-muted-foreground",
   warning: "text-red-400",
   penalty: "text-red-400",
@@ -220,6 +230,7 @@ export default function NotificationsPage() {
 
   const [activeTab, setActiveTab] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [textQuery, setTextQuery] = useState("")
   const [groupBy, setGroupBy] = useState<"none" | "type" | "day">("none");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -228,8 +239,16 @@ export default function NotificationsPage() {
     if (activeTab === "unread") {
       res = res.filter((n) => !n.isRead);
     }
+    const q = textQuery.trim().toLowerCase();
+    if (q) {
+      res = res.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          (n.body ?? "").toLowerCase().includes(q),
+      );
+    }
     return res;
-  }, [notifications, typeFilter, activeTab]);
+  }, [notifications, typeFilter, activeTab, textQuery]);
 
   const largeList = filtered.length > STAGGER_CHILDREN_LIMIT;
   const listMotion = useListMotion(filtered.length);
@@ -366,6 +385,13 @@ export default function NotificationsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <input
+            aria-label="Search notifications"
+            value={textQuery}
+            onChange={(e) => setTextQuery(e.target.value)}
+            placeholder="Search title or text…"
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground"
+          />
           <select
             aria-label="ListFilter notifications by type"
             value={typeFilter}
@@ -464,8 +490,14 @@ export default function NotificationsPage() {
                     notification={n}
                     onMarkRead={markAsRead}
                     onClick={(notif) => {
+                      // L1: notification payloads are server data — only
+                      // same-origin app paths are followed, never external
+                      // URLs or scheme links.
                       if (notif.data && typeof notif.data === "object" && "link" in notif.data) {
-                        router.push(String(notif.data.link));
+                        const link = String(notif.data.link)
+                        if (isSafeAppLink(link)) {
+                          router.push(link)
+                        }
                       }
                     }}
                     selected={selectedIds.includes(n.id)}

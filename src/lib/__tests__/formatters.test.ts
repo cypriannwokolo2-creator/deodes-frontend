@@ -20,8 +20,8 @@ describe("formatCurrency", () => {
     expect(formatCurrency(1234.5, "NGN", "de-DE")).toContain("₦")
   })
 
-  it("renders XLM as a plain localized number, not a currency symbol", () => {
-    expect(formatCurrency(1.234567, "XLM", "en-US")).toBe("1.2346 XLM")
+  it("renders Arc USDC with two decimals", () => {
+    expect(formatCurrency(1.234567, "USDC", "en-US")).toBe("1.23 USDC")
   })
 
   it("does not throw on a non-ISO asset code", () => {

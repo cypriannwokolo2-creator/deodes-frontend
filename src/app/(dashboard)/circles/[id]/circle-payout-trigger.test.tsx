@@ -94,7 +94,7 @@ describe("CirclePayoutTrigger", () => {
   })
 
   it("disables distribution for non-USDC circles (Arc USDC only)", () => {
-    renderTrigger({ circle: { ...circle, currency: "XLM" } as Circle })
+    renderTrigger({ circle: { ...circle, currency: "EUR" as never } as Circle })
     expect(screen.getByText(/Arc USDC only/)).toBeDefined()
     expect(screen.queryByLabelText(/Recipient/)).toBeNull()
   })

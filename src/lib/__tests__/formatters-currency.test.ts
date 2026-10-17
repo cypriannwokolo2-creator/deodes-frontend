@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { formatCurrency } from "../formatters"
 
 /**
- * `Currency` in this app is `"USDC" | "XLM"`, and `Intl` only accepts
+ * `Currency` in this app is `"USDC"` (Arc), and `Intl` only accepts
  * three-letter ISO 4217 codes. Passing `"USDC"` used to throw a `RangeError`,
  * taking down every screen that rendered a USDC amount.
  */
@@ -21,8 +21,8 @@ describe("formatCurrency with non-ISO currency codes", () => {
     expect(formatCurrency(1234.5, "USD")).toBe("$1,234.50")
   })
 
-  it("is unchanged for XLM", () => {
-    expect(formatCurrency(0.1234, "XLM")).toBe("0.1234 XLM")
+  it("falls back for an unsupported rail code without throwing", () => {
+    expect(formatCurrency(0.1234, "EUROC")).toBe("0.12 EUROC")
   })
 
   it("handles an empty currency code without throwing", () => {

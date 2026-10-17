@@ -7,12 +7,10 @@ import { useAuthStore } from "@/stores/auth-store"
 import { useUIStore } from "@/stores/ui-store"
 import { AuthLayout } from "@/components/auth/auth-layout"
 import { Button } from "@/components/ui/button"
-import { post } from "@/lib/api-client"
 
 export default function PasskeySetupPage() {
   const router = useRouter()
   const addToast = useUIStore((s) => s.addToast)
-  const user = useAuthStore((s) => s.user)
   
   const [step, setStep] = useState<"intro" | "registering" | "success" | "error">("intro")
   const [loading, setLoading] = useState(false)
@@ -31,33 +29,26 @@ export default function PasskeySetupPage() {
     setStep("registering")
     
     try {
+      const { initializeWalletAdapters } = await import("@/lib/wallet/adapters")
+      await initializeWalletAdapters()
       const adapter = (await import("@/lib/wallet/registry")).getWalletRegistry().getAdapter("passkey")
       if (!adapter) {
         throw new Error("Passkey not available")
       }
 
       adapter.reset?.()
+      // The adapter runs the full WebAuthn ceremony itself (generate-options
+      // → browser attestation → /api/auth/passkey/register) and stores the
+      // credential locally. A second POST here would double-register against
+      // a dead backend path — connect success IS registration success.
       const result = await adapter.connect()
-      const { publicKey, credentialId } = result as { publicKey: string; credentialId: string }
-      
-      if (!publicKey || !credentialId) {
+      const { publicKey } = result as { publicKey: string }
+
+      if (!publicKey) {
         throw new Error("Failed to register passkey")
       }
-
-      // Register with backend
-      const res = await post<{ data?: Record<string, unknown> } & Record<string, unknown>>("/auth/passkey/register", {
-        credentialId,
-        publicKey,
-        userId: user?.id,
-      })
-      
-      const body = res?.data ?? res as Record<string, unknown>
-      if (body?.success) {
-        setStep("success")
-        addToast({ type: "success", title: "Passkey registered successfully" })
-      } else {
-        throw new Error(typeof body?.error === "string" ? body.error : "Registration failed")
-      }
+      setStep("success")
+      addToast({ type: "success", title: "Passkey registered successfully" })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Passkey registration failed"
       setError(msg)
@@ -65,7 +56,7 @@ export default function PasskeySetupPage() {
     } finally {
       setLoading(false)
     }
-  }, [router, addToast, user])
+  }, [router, addToast])
 
   const handleContinue = () => {
     router.replace("/")

@@ -6,10 +6,10 @@ import { ArrowLeft, Banknote, BellRing, CreditCard, Landmark } from "lucide-reac
 import { Modal } from "@/components/ui/modal";
 import { OnrampWidget } from "@/components/onramp/onramp-widget";
 import { useAuth } from "@/hooks/use-auth";
-import { useMultiWalletConnection } from "@/hooks/use-multi-wallet";
 import { useUIStore } from "@/stores/ui-store";
 import { ARC_NETWORK } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import { useDepositAddress } from "./hooks/use-deposit-address";
 
 const COMING_SOON_RAILS = [
   { code: "NGN", label: "Nigerian Naira", detail: "Bank transfer" },
@@ -27,14 +27,21 @@ const COMING_SOON_RAILS = [
  */
 export default function DepositPage() {
   const addToast = useUIStore((s) => s.addToast);
-  const { user } = useAuth();
-  const { address: activeAddress } = useMultiWalletConnection();
+  const { user, isLoading: authLoading, checkAuth } = useAuth();
   const onrampEnabled = process.env.NEXT_PUBLIC_ONRAMP_ENABLED === "true";
-  const arcAddress =
-    activeAddress && /^0x[0-9a-fA-F]{40}$/.test(activeAddress) ? activeAddress : null;
+
+  const {
+    depositAddress,
+    hostedError,
+    resolving,
+    retryHosted,
+  } = useDepositAddress();
 
   const [onrampOpen, setOnrampOpen] = useState(false);
   const [onrampEnv, setOnrampEnv] = useState<"sandbox" | "production" | null>(null);
+
+  const authReady = !authLoading;
+  const needsAuth = authReady && !user?.id;
 
   // Resolve the Circle env for the money badge (testnet vs live).
   useEffect(() => {
@@ -180,10 +187,10 @@ export default function DepositPage() {
               </span>
             )}
           </div>
-          {user?.id && arcAddress ? (
+          {user?.id && depositAddress ? (
             <OnrampWidget
               appUserId={user.id}
-              destinationAddress={arcAddress}
+              destinationAddress={depositAddress}
               onSettled={() => {
                 addToast({ type: "success", title: "Deposit settled", description: "USDC is on its way to your Arc wallet." });
                 setOnrampOpen(false);
@@ -195,10 +202,51 @@ export default function DepositPage() {
                 addToast({ type: "error", title: "Onramp failed", description: message })
               }
             />
+          ) : needsAuth ? (
+            <div className="space-y-2">
+              <p className="text-sm text-amber-200">
+                Your session is still loading — sign-in state wasn&apos;t ready when
+                the deposit widget asked for it.
+              </p>
+              <button
+                type="button"
+                onClick={() => checkAuth()}
+                className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5"
+              >
+                Reload session
+              </button>
+            </div>
+          ) : hostedError ? (
+            <div className="space-y-2">
+              <p className="text-sm text-red-300">
+                Couldn&apos;t prepare your Arc wallet{hostedError !== "no-arc-wallet" ? `: ${hostedError}` : "."}
+              </p>
+              <button
+                type="button"
+                onClick={retryHosted}
+                className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5"
+              >
+                Try again
+              </button>
+            </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Connect an Arc (0x) wallet to use card payments. The bank rails above are coming soon.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {authLoading ? "Checking your session…" : "Setting up your Arc wallet…"}
+              </p>
+              {/* Retry stays visible while resolving: a hung /wallets or
+                  hosted-arc/ensure call previously left this copy on screen
+                  forever with no way out and no Circle card input. */}
+              {authReady && (
+                <button
+                  type="button"
+                  onClick={resolving ? retryHosted : retryHosted}
+                  className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5"
+                >
+                  {resolving ? "Taking too long? Try again" : "Try again"}
+                </button>
+              )}
+            </div>
           )}
         </Modal>
       )}

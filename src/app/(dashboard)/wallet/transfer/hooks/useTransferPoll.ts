@@ -6,17 +6,44 @@ import { ARC_RPC_URL } from "@/lib/constants"
 export type TxStatus = "pending" | "finalized" | "failed" | "timeout"
 
 export interface TransferPollResult {
-  status: TxStatus
+  status: TxStatus;
   /** Number of poll attempts made so far. */
-  attempts: number
+  attempts: number;
+  /** Actual network fee in USDC once the receipt settles, null until then. */
+  feeUsdc: number | null;
 }
 
 export const POLL_INTERVAL_MS = 3_000
 export const MAX_ATTEMPTS = 20 // 60 s before timeout
 
 interface JsonRpcReceiptResponse {
-  result?: { status?: string | number } | null
-  error?: { code?: number; message?: string }
+  result?:
+    | {
+        status?: string | number;
+        gasUsed?: string;
+        effectiveGasPrice?: string;
+      }
+    | null;
+  error?: { code?: number; message?: string };
+}
+
+/**
+ * Derives the paid network fee in USDC from a receipt. Arc prices gas in
+ * USDC with 18 decimals: fee = gasUsed * effectiveGasPrice / 1e18.
+ */
+export function receiptFeeUsdc(receipt: {
+  gasUsed?: string;
+  effectiveGasPrice?: string;
+}): number | null {
+  try {
+    if (!receipt.gasUsed || !receipt.effectiveGasPrice) return null;
+    const gas = BigInt(receipt.gasUsed);
+    const price = BigInt(receipt.effectiveGasPrice);
+    const wei = gas * price;
+    return Number(wei) / 1e18;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -35,6 +62,7 @@ interface JsonRpcReceiptResponse {
 export function useTransferPoll(txnHash: string | null): TransferPollResult {
   const [status, setStatus] = useState<TxStatus>("pending")
   const [attempts, setAttempts] = useState(0)
+  const [feeUsdc, setFeeUsdc] = useState<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const attemptsRef = useRef(0)
   const activeRef = useRef(true)
@@ -60,10 +88,12 @@ export function useTransferPoll(txnHash: string | null): TransferPollResult {
       if (receipt) {
         const raw = String(receipt.status ?? "").toLowerCase()
         if (raw === "0x1" || raw === "0x01" || raw === "1") {
+          setFeeUsdc(receiptFeeUsdc(receipt))
           setStatus("finalized")
           return
         }
         if (raw === "0x0" || raw === "0x00" || raw === "0") {
+          setFeeUsdc(receiptFeeUsdc(receipt))
           setStatus("failed")
           return
         }
@@ -94,6 +124,7 @@ export function useTransferPoll(txnHash: string | null): TransferPollResult {
     attemptsRef.current = 0
     setStatus("pending")
     setAttempts(0)
+    setFeeUsdc(null)
 
     // Start first poll after a short delay to let the network process the tx
     timerRef.current = setTimeout(poll, 1_500)
@@ -104,5 +135,5 @@ export function useTransferPoll(txnHash: string | null): TransferPollResult {
     }
   }, [txnHash, poll])
 
-  return { status, attempts }
+  return { status, attempts, feeUsdc }
 }

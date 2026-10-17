@@ -1,36 +1,31 @@
 "use client"
 
 import { useState } from "react"
-import dynamic from "next/dynamic"
 import { PageHeader } from "@/components/shared/page-header"
 import { useTranslate } from "@/lib/locale/context"
-import { useMultiWallet } from "@/hooks/use-multi-wallet"
 import { useAuthStore } from "@/stores/auth-store"
 import { useUIStore } from "@/stores/ui-store"
 import { useWalletOverview } from "./hooks/useWalletOverview"
 import { PortfolioHero } from "./components/PortfolioHero"
 import { CustodyBadge } from "./components/CustodyBadge"
-import { WalletLinkButton } from "./components/WalletLinkButton"
 import { WalletActions } from "./components/WalletActions"
 import { ReceiveModal } from "./components/ReceiveModal"
 import { ActivityList } from "./components/ActivityList"
 import { WalletEmptyState } from "./components/WalletEmptyState"
 
-const WalletSettings = dynamic(
-  () => import("@/components/wallet/wallet-settings").then((m) => m.WalletSettings),
-  { ssr: false }
-)
-
 /**
  * Wallet — standard fintech layout.
  *
+ * One wallet per account: the hosted Deodes wallet. External wallets can
+ * no longer be connected, so every address shown here is the hosted one —
+ * the same address deposits land on and sends leave from.
+ *
  * Section order: header → custody badge → portfolio hero (total + single
  * USDC-on-Arc row) → Send/Receive/Deposit/Withdraw actions → recent
- * activity → wallet settings. No XLM is rendered anywhere.
+ * activity. No XLM is rendered anywhere.
  */
 export default function WalletPage() {
   const { locale } = useTranslate()
-  const { setSelectorOpen } = useMultiWallet()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const authLoading = useAuthStore((s) => s.isLoading)
   const addToast = useUIStore((s) => s.addToast)
@@ -38,15 +33,13 @@ export default function WalletPage() {
     balance,
     transactions,
     hostedWallet,
-    connectedName,
-    connectedAddress,
     loading,
   } = useWalletOverview()
   const [showReceive, setShowReceive] = useState(false)
 
   const hostedAddress = hostedWallet?.publicKey ?? null
-  const hasWallet = Boolean(connectedAddress ?? hostedAddress)
-  const receiveAddress = connectedAddress ?? hostedAddress
+  const hasWallet = Boolean(hostedAddress)
+  const receiveAddress = hostedAddress
 
   const handleCopied = () => addToast({ type: "info", title: "Address copied" })
   const handleCopyError = () =>
@@ -71,20 +64,17 @@ export default function WalletPage() {
           </div>
         </div>
       ) : !isAuthenticated ? (
-        <WalletEmptyState signedIn={false} onConnect={() => setSelectorOpen(true)} />
+        <WalletEmptyState signedIn={false} />
       ) : !hasWallet ? (
-        <WalletEmptyState signedIn onConnect={() => setSelectorOpen(true)} />
+        <WalletEmptyState signedIn />
       ) : (
         <>
           <CustodyBadge
-            connectedName={connectedName}
-            connectedAddress={connectedAddress}
             hostedAddress={hostedAddress}
             loading={loading}
             onCopied={handleCopied}
             onCopyError={handleCopyError}
           />
-          <WalletLinkButton />
           <PortfolioHero usdc={balance?.usdc} loading={loading} locale={locale} />
           <WalletActions onReceive={() => setShowReceive(true)} />
           <div
@@ -100,12 +90,6 @@ export default function WalletPage() {
         open={showReceive}
         onClose={() => setShowReceive(false)}
       />
-
-      {isAuthenticated && hasWallet && (
-        <div className="border-t border-white/[0.06] pt-6">
-          <WalletSettings />
-        </div>
-      )}
     </div>
   )
 }

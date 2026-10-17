@@ -17,6 +17,7 @@ export const contributorSchema = z.object({
     .refine((value) => githubUrlRegex.test(value), {
       message: "Please enter a valid GitHub profile URL",
     }),
+  email: z.string().min(1, "Email is required").email("Enter a valid email so we can reply"),
   contribution: z.string().min(1, "Select an area"),
   bio: z.string().max(1000, "Bio must be 1000 characters or fewer").optional(),
 })

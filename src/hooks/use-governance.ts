@@ -1,8 +1,9 @@
 "use client"
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 import { queryKeys } from "@/lib/query-keys";
+import { post } from "@/lib/api-client";
 import {
   listProposals,
   getProposal,
@@ -14,13 +15,16 @@ import {
   type VoteChoice,
 } from "@/lib/governance-api";
 import { useOptimisticMutation } from "@/hooks/use-optimistic-mutation";
+import { getErrorMessage } from "@/lib/api-client";
+import { useUIStore } from "@/stores/ui-store";
 import { useGovernanceVotes } from "@/stores/governance-votes-store";
 import type { QueryClient } from "@tanstack/react-query";
 
-export function useGovernanceProposals(status: ProposalStatus) {
+export function useGovernanceProposals(status: ProposalStatus, search = "") {
+  const q = search.trim()
   return useQuery({
-    queryKey: queryKeys.governance.list({ status }),
-    queryFn: () => listProposals(status),
+    queryKey: [...queryKeys.governance.list({ status }), q],
+    queryFn: () => listProposals(status, q),
     staleTime: 30_000,
   });
 }
@@ -43,6 +47,13 @@ export function useCreateProposal() {
     // Creating a proposal is an append, not an edit, so there is nothing
     // meaningful to paint optimistically — the list simply refreshes.
     applyOptimistic: () => {},
+    onError: (err) => {
+      useUIStore.getState().addToast({
+        type: "error",
+        title: "Failed to create proposal",
+        description: getErrorMessage(err),
+      })
+    },
   });
 }
 
@@ -124,12 +135,17 @@ export function useVoteOnProposal(id: string) {
       );
     },
 
-    onError: () => {
+    onError: (err) => {
       // Runs after the helper has restored its own snapshots, so this wins.
       for (const [keyJson, data] of listSnapshots.current) {
         queryClient.setQueryData(JSON.parse(keyJson) as readonly unknown[], data);
       }
       listSnapshots.current = new Map();
+      useUIStore.getState().addToast({
+        type: "error",
+        title: "Vote failed",
+        description: getErrorMessage(err),
+      })
     },
 
     onSuccess: (_data, support) => {
@@ -144,3 +160,47 @@ export function useVoteOnProposal(id: string) {
 
 /** The path a vote for `id` would be submitted to. Exported for tests. */
 export { VOTE_PATH };
+
+export function useExecuteProposal(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      post(`/governance/proposals/${id}/execute`, {}, {
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.governance.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.governance.all });
+      useUIStore.getState().addToast({ type: "success", title: "Proposal executed" });
+    },
+    onError: (err) => {
+      useUIStore.getState().addToast({
+        type: "error",
+        title: "Execution failed",
+        description: getErrorMessage(err),
+      });
+    },
+  });
+}
+
+export function useCancelProposal(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      post(`/governance/proposals/${id}/cancel`, {}, {
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.governance.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.governance.all });
+      useUIStore.getState().addToast({ type: "success", title: "Proposal cancelled" });
+    },
+    onError: (err) => {
+      useUIStore.getState().addToast({
+        type: "error",
+        title: "Cancellation failed",
+        description: getErrorMessage(err),
+      });
+    },
+  });
+}

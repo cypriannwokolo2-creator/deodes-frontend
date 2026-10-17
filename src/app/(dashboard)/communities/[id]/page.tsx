@@ -70,7 +70,7 @@ export default function CommunityDetailPage() {
   const activityQuery = useCommunityActivity(communityId)
   const circlesQuery = useCommunityCircles(communityId)
   const membershipQuery = useCommunityMembership(communityId, !!user)
-  const { join, togglePin, deleteAnnouncement, removeMember, transferOwnership } = useCommunityMutation(communityId)
+  const { join, leave, togglePin, deleteAnnouncement, removeMember, transferOwnership, likeAnnouncement } = useCommunityMutation(communityId)
   const community = communityQuery.data ?? null
   const members = membersQuery.data ?? []
   const announcements = announcementsQuery.data ?? []
@@ -87,6 +87,16 @@ export default function CommunityDetailPage() {
     } catch (e) {
       logger.error("[community] Failed to join:", e)
       addToast({ type: "error", title: "Failed to join", description: "Please try again." })
+    }
+  }
+
+  const handleLeave = async () => {
+    try {
+      await leave.mutateAsync()
+      addToast({ type: "success", title: "Left community" })
+    } catch (e) {
+      logger.error("[community] Failed to leave:", e)
+      addToast({ type: "error", title: "Failed to leave", description: "Please try again." })
     }
   }
 
@@ -116,6 +126,15 @@ export default function CommunityDetailPage() {
     } catch (e) {
       logger.error("[community] Failed to delete announcement:", e)
       addToast({ type: "error", title: "Failed to delete" })
+    }
+  }
+
+  const handleLikeAnnouncement = async (id: string) => {
+    try {
+      await likeAnnouncement.mutateAsync(id)
+    } catch (e) {
+      logger.error("[community] Failed to like announcement:", e)
+      addToast({ type: "error", title: "Failed to like" })
     }
   }
 
@@ -239,7 +258,7 @@ export default function CommunityDetailPage() {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <TrendingUp className="h-4 w-4 text-emerald-400" />
-                    <strong className="text-foreground">${community.totalSaved.toFixed(2)}</strong> saved
+                    <strong className="text-foreground">{community.totalSaved.toFixed(2)} USDC</strong> saved
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -248,7 +267,12 @@ export default function CommunityDetailPage() {
                       Join
                     </Button>
                   )}
-                  {user && isMember && (
+                  {user && isMember && !isOrganizer && (
+                    <Button variant="outline" size="sm" onClick={handleLeave} className="text-xs h-8">
+                      Leave
+                    </Button>
+                  )}
+                  {user && isMember && isOrganizer && (
                     <span className="inline-flex items-center gap-1 text-xs text-emerald-400 px-3 py-1.5 rounded-full bg-emerald-500/10">
                       <Shield className="h-3 w-3" /> Member
                     </span>
@@ -410,7 +434,7 @@ export default function CommunityDetailPage() {
                       <p className="text-sm text-foreground">{a.content}</p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                         <span>{formatDate(a.createdAt)}</span>
-                        <button type="button" aria-label={`Like announcement (${a.likeCount})`} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        <button type="button" aria-label={`Like announcement (${a.likeCount})`} onClick={() => handleLikeAnnouncement(a.id)} className="flex items-center gap-1 hover:text-foreground transition-colors">
                           <Heart className="h-3 w-3" /> {a.likeCount}
                         </button>
                         {isOrganizer && (
@@ -452,7 +476,7 @@ export default function CommunityDetailPage() {
               <div className="space-y-3">
                 {[
                   { label: "Members", value: community.memberCount, icon: Users },
-                  { label: "Total Saved", value: `$${community.totalSaved.toFixed(2)}`, icon: DollarSign },
+                  { label: "Total Saved", value: `${community.totalSaved.toFixed(2)} USDC`, icon: DollarSign },
                   { label: "Category", value: community.category.replace("_", " "), icon: Globe },
                 ].map((stat) => (
                   <div key={stat.label} className="flex items-center justify-between text-sm">

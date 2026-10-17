@@ -31,7 +31,7 @@ export function ContributionForm() {
   } = useForm<ContributorInput>({
     resolver: zodResolver(contributorSchema),
     mode: "onTouched",
-    defaultValues: { name: "", github: "", contribution: "", bio: "" },
+    defaultValues: { name: "", email: "", github: "", contribution: "", bio: "" },
     // react-hook-form focuses the first invalid field after a failed submit by
     // default, which runs *after* the invalid callback and so overrode the error
     // summary's focus. Two things grabbing focus means the screen reader lands
@@ -45,6 +45,7 @@ export function ContributionForm() {
 
   const fieldConfig = [
     { name: "name" as const, label: "Name", id: "app-name" },
+    { name: "email" as const, label: "Email", id: "app-email" },
     { name: "github" as const, label: "GitHub profile", id: "app-github" },
     { name: "contribution" as const, label: "Contribution area", id: "app-area" },
     { name: "bio" as const, label: "Bio", id: "app-bio" },
@@ -67,17 +68,22 @@ export function ContributionForm() {
     setFormError(null)
 
     try {
-      const res = await fetch("/api/contributors", {
+      // No contributor pipeline exists yet — applications ride the support
+      // channel with their details composed into the message.
+      const res = await fetch("/api/support", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          email: values.email,
+          message: `[contributor / ${values.contribution}] ${values.name} (${values.github}): ${values.bio || "no bio"}`,
+        }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || "Failed to submit")
       }
       setFormState("success")
-      reset({ name: "", github: "", contribution: "", bio: "" })
+      reset({ name: "", email: "", github: "", contribution: "", bio: "" })
     } catch (err) {
       setFormState("error")
       setFormError(err instanceof Error ? err.message : "Something went wrong")
@@ -144,6 +150,21 @@ export function ContributionForm() {
             className={inputClass(Boolean(errors.name))}
           />
           {errorText(errors.name?.message, "app-name-error")}
+        </div>
+        <div>
+          <label htmlFor="app-email" className="block text-xs font-medium text-muted-foreground mb-1.5">
+            Email
+          </label>
+          <input
+            id="app-email"
+            type="email"
+            placeholder="you@example.com"
+            {...register("email")}
+            aria-invalid={errors.email ? true : undefined}
+            aria-describedby={errors.email ? "app-email-error" : undefined}
+            className={inputClass(Boolean(errors.email))}
+          />
+          {errorText(errors.email?.message, "app-email-error")}
         </div>
       </div>
 

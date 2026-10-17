@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import Link from "next/link";
+import Link from "next/link"
+import { safeSlug } from "@/lib/slug-guard";
 import { Metadata } from "next";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { sanitizeHtml, escapeHtml } from "@/lib/security/html-sanitizer";
@@ -9,6 +10,8 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { renderMarkdownTable } from "@/lib/markdown-table";
 
 const DOCS_DIR = path.join(process.cwd(), "content/docs");
+
+
 
 function parseFrontmatter(file: string): {
   title: string;
@@ -36,11 +39,10 @@ export async function generateMetadata({
 }: {
   params: { slug?: string[] };
 }): Promise<Metadata> {
-  const slug =
-    params.slug && params.slug.length > 0 ? params.slug.join("/") : "index";
-  const filePath = path.join(DOCS_DIR, `${slug}.md`);
+  const slug = safeSlug(params.slug);
+  const filePath = slug === null ? "" : path.join(DOCS_DIR, `${slug}.md`);
 
-  if (!fs.existsSync(filePath)) {
+  if (slug === null || !fs.existsSync(filePath)) {
     return {
       title: "Doc Not Found — Deodes",
       description: "That documentation page does not exist.",
@@ -206,14 +208,13 @@ function getDocsList(): { slug: string; title: string; order: number }[] {
 
 // ── Page Component ──
 export default function DocsPage({ params }: { params: { slug?: string[] } }) {
-  const { slug } = params;
-  const targetSlug = slug && slug.length > 0 ? slug.join("/") : "index";
+  const targetSlug = safeSlug(params.slug) ?? "index";
   const filePath = path.join(DOCS_DIR, `${targetSlug}.md`);
 
   const docs = getDocsList();
 
   // 404
-  if (!fs.existsSync(filePath)) {
+  if (safeSlug(params.slug) === null || !fs.existsSync(filePath)) {
     return (
       <PublicLayout>
         <div className="auroral-mesh min-h-screen">

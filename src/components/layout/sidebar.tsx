@@ -32,6 +32,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useTranslate } from "@/lib/locale/context";
+import { displayNameOf, avatarInitialOf } from "@/lib/profile/names"
 
 interface NavItem {
   label: string;
@@ -109,9 +110,7 @@ function SidebarComponent() {
     return groups;
   }, [t, unreadCount, user?.role]);
 
-  const userFallback = user?.displayName
-    ? user.displayName.charAt(0).toUpperCase()
-    : "U";
+  const userFallback = avatarInitialOf(user);
 
   return (
     <div className="hidden lg:block fixed left-3 top-20 bottom-3 w-64 z-30">
@@ -223,7 +222,7 @@ function SidebarComponent() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-body font-medium text-foreground truncate">
-                  {user.displayName ?? "User"}
+                  {displayNameOf(user) ?? "User"}
                 </p>
                 <p className="text-[10px] text-muted-foreground font-mono truncate">
                   DeoScore: {user.moiScore}

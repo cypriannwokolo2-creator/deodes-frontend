@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger"
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { ApiResponse, User } from "@/types";
-import { post, clearApiClientState } from "@/lib/api-client";
+import { get as apiGet, post, clearApiClientState } from "@/lib/api-client";
 import { ensureHostedArcWallet } from "@/lib/wallet/ensure-hosted";
 import { getCsrfHeaders } from "@/lib/auth/csrf";
 import {
@@ -167,11 +167,12 @@ async function setStoredUser(user: User): Promise<void> {
       const hmac = computeHmacSha256Sync(JSON.stringify(user));
       const store: UserStoreWithHmac = { user, hmac };
 
-      // Encrypt user profile with device-specific passphrase
+      // Encrypt user profile with device-specific passphrase. M2: no
+      // plaintext fallback — the profile stays memory-only when encryption
+      // is unavailable rather than landing readable in localStorage.
       const passphrase = getUserEncryptionPassphrase();
-      await encryptToStorage(USER_DATA_KEY, store, passphrase).catch(() => {
-        // Fallback to unencrypted if encryption fails
-        localStorage.setItem(USER_DATA_KEY, JSON.stringify(store));
+      await encryptToStorage(USER_DATA_KEY, store, passphrase).catch((e) => {
+        logger.error("[auth] Profile encryption failed, kept in memory only:", e);
       });
     } catch (e) {
       logger.warn("[auth] Failed to persist user data:", e);
@@ -324,22 +325,35 @@ const baseStore = (
 
     const exp = extractTokenExpiry(token);
     if (exp && Date.now() < exp) {
-      const storedUser = await getStoredUserAsync();
-      set({
-        isLoading: false,
-        isAuthenticated: true,
-        token,
-        tokenExpiresAt: exp,
-        user: storedUser ?? getStoredUser(),
-      });
-      // New users from before hosted wallets existed get one now.
-      void ensureHostedArcWallet();
-      return;
+      const storedUser = (await getStoredUserAsync()) ?? getStoredUser();
+      if (storedUser) {
+        set({
+          isLoading: false,
+          isAuthenticated: true,
+          token,
+          tokenExpiresAt: exp,
+          user: storedUser,
+        });
+        // New users from before hosted wallets existed get one now.
+        void ensureHostedArcWallet();
+        return;
+      }
+      // Valid token but no cached profile (fresh tab before HMAC key loads,
+      // cleared storage, or pre-HMAC account): fall through to GET /me so
+      // callers never see authenticated=true with user=null, which gates
+      // Circle onramp sessions (appUserId === JWT sub) behind a profile that
+      // never arrives and leaves deposit stuck on "Setting up…".
     }
 
     set({ isLoading: true });
     try {
-      const response = await post<ApiResponse<{ user: User }>>("/auth/me");
+      // Backend serves the profile at GET /v1/me (the old POST /auth/me is
+      // gone — it 404s, which used to surface as a silent transient failure
+      // that left user=null and made session-retry buttons appear dead).
+      // GET also skips CSRF validation, avoiding a chicken-and-egg on fresh tabs.
+      // NOTE: aliased as apiGet — bare `get` here would resolve to zustand's
+      // store getter (baseStore's 2nd param), not the API client.
+      const response = await apiGet<ApiResponse<{ user: User }>>("/me");
       const data = response.data;
       if (!data?.user) throw new Error("Invalid session");
 
@@ -367,7 +381,17 @@ const baseStore = (
         get().logout();
       } else {
         logger.warn("[auth] checkAuth transient failure, keeping session:", e);
-        set({ isLoading: false });
+        // Keep a still-valid token so pages can retry GET /me instead of
+        // bouncing to /login with a good session. user stays as-is (may be
+        // null) — callers must handle the null-profile case explicitly.
+        const currentToken = getAccessToken() ?? token;
+        const currentExp = extractTokenExpiry(currentToken);
+        set({
+          isLoading: false,
+          isAuthenticated: currentExp ? Date.now() < currentExp : get().isAuthenticated,
+          token: currentToken,
+          tokenExpiresAt: currentExp ?? get().tokenExpiresAt,
+        });
       }
     }
   },

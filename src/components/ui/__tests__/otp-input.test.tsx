@@ -50,7 +50,10 @@ describe("OTPInput", () => {
     await user.type(input, "12")
 
     expect(input).toHaveFocus()
-    expect(container.querySelector("[data-otp-slot='2']")).toHaveClass("border-aurora-violet")
+    // Slot 2 is empty but next-in-line: it carries the focused-next style,
+    // not the filled aurora style (slots 0-1 hold the typed digits).
+    expect(container.querySelector("[data-otp-slot='2']")).toHaveClass("border-foreground", "ring-1")
+    expect(container.querySelector("[data-otp-slot='0']")).toHaveClass("border-aurora-violet/50")
   })
 
   it("announces errors and marks the input invalid", () => {
@@ -61,5 +64,19 @@ describe("OTPInput", () => {
     expect(input).toHaveAttribute("aria-invalid", "true")
     expect(input).toHaveAttribute("aria-describedby", alert.id)
     expect(alert).toHaveTextContent("That code is invalid")
+  })
+
+  it("renders theme-aware slots visible on light and dark cards", () => {
+    // Regression: hardcoded bg-white/5 + border-white/10 slots were
+    // invisible on the light-theme card, so users typed blind.
+    const { container } = render(<ControlledOTPInput />)
+    const slots = container.querySelectorAll("[data-otp-slot]")
+    expect(slots).toHaveLength(6)
+    slots.forEach((slot) => {
+      const cls = slot.getAttribute("class") ?? ""
+      expect(cls).toContain("border-foreground")
+      expect(cls).not.toContain("bg-white/5")
+      expect(cls).not.toContain("border-white/10")
+    })
   })
 })

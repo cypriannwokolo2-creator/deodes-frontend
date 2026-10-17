@@ -16,16 +16,11 @@ vi.mock("@/lib/monitoring", () => ({
 const mockSignMessage = vi.fn()
 const mockSetTokens = vi.fn()
 
-vi.mock("@/stores/multi-wallet-store", () => ({
-  useMultiWalletStore: {
-    getState: () => ({
-      wallets: {
-        "arc-evm": {
-          adapter: { signMessage: mockSignMessage },
-        },
-      },
-    }),
-  },
+vi.mock("@/lib/wallet/registry", () => ({
+  getWalletRegistry: () => ({
+    getAdapter: (id: string) =>
+      id === "arc-evm" ? { signMessage: mockSignMessage } : undefined,
+  }),
 }))
 
 vi.mock("@/stores/auth-store", () => ({
@@ -109,6 +104,7 @@ describe("AuthFlowStore - signAndSubmit", () => {
         token: "jwt-token",
         refreshToken: "refresh-token",
         user: { id: "user-1" },
+        csrfToken: "csrf-123",
       },
     })
 
@@ -126,23 +122,18 @@ describe("AuthFlowStore - signAndSubmit", () => {
       },
       { _retry: true },
     )
-    expect(mockSetTokens).toHaveBeenCalledWith("jwt-token", "refresh-token", { id: "user-1" })
+    expect(mockSetTokens).toHaveBeenCalledWith("jwt-token", "refresh-token", { id: "user-1" }, "csrf-123")
 
     const state = useAuthFlowStore.getState()
     expect(state.status).toEqual({ status: "authenticated" })
   })
 
   it("rejects a stale auth mode instead of submitting a signature under new state", async () => {
-    mockPost
-      .mockImplementationOnce(async () => {
-        return { data: { nonce: { nonce: "nonce-123" } } }
-      })
-      .mockResolvedValueOnce({
-        data: {
-          token: "jwt-token",
-          user: { id: "user-1" },
-        },
-      })
+    // Single queued response: the flow aborts before any verify call, and a
+    // leftover queued response would bleed into the next test's mockPost.
+    mockPost.mockImplementationOnce(async () => {
+      return { data: { nonce: { nonce: "nonce-123" } } }
+    })
     mockSignMessage.mockImplementationOnce(async () => {
       useAuthFlowStore.setState({
         mode: "register",
@@ -198,7 +189,8 @@ describe("AuthFlowStore - signAndSubmit", () => {
     expect(state.status).toEqual({
       status: "error",
       code: "auth_server_error",
-      message: "signature verification failed",
+      message:
+        "This signature wasn't recognized. Make sure your wallet is on the same account you connected, then retry signing. Note: smart-contract wallets (e.g. Coinbase Smart Wallet) can't sign in — use Google or passkey instead.",
       canRetry: true,
     })
   })

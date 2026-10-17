@@ -57,7 +57,7 @@ describe("buildCsp", () => {
     expect(connect).toContain("https://rpc.testnet.arc.io")
     expect(connect).toContain("https://rpc.mainnet.arc.io")
     expect(connect).not.toContain("horizon.stellar.org")
-    expect(connect).toContain("wss://*.walletconnect.com")
+    expect(connect).not.toContain("walletconnect.com")
     expect(connect).toContain("https://*.hcaptcha.com")
     expect(connect).toContain("https://mc.yandex.ru")
 
@@ -65,6 +65,7 @@ describe("buildCsp", () => {
     expect(frame).toContain("https://challenges.cloudflare.com")
     // Circle App Kit Onramp widget (iframe) — docs.arc.io hosting requirements.
     expect(frame).toContain("https://onramp.arc.io")
+    expect(frame).not.toContain("walletconnect")
     expect(connect).toContain("https://onramp.arc.io")
     expect(connect).toContain("https://api.circle.com")
   })

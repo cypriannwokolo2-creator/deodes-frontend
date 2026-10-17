@@ -9,6 +9,11 @@ import { Routes } from "@/lib/constants"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AdminStats } from "./components/AdminStats"
 import { AdminUsers } from "./components/AdminUsers"
+import { AdminUserDetail } from "./components/AdminUserDetail"
+import { AdminCircles } from "./components/AdminCircles"
+import { AdminCommunities } from "./components/AdminCommunities"
+import { AdminFrozen } from "./components/AdminFrozen"
+import { AdminTickets } from "./components/AdminTickets"
 
 const PAGE_LIMIT = 20
 
@@ -45,6 +50,7 @@ export default function AdminPage() {
 
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   const metricsQuery = useAdminMetrics(isAdmin)
   const usersQuery = useAdminUsers({ search, page, limit: PAGE_LIMIT }, isAdmin)
@@ -52,6 +58,10 @@ export default function AdminPage() {
   const handleSearch = (value: string) => {
     setSearch(value)
     setPage(1)
+  }
+
+  const handleSelectUser = (id: string) => {
+    setSelectedUserId((prev) => (prev === id ? null : id))
   }
 
   if (isLoading) {
@@ -122,7 +132,14 @@ export default function AdminPage() {
             page={page}
             onPage={setPage}
             limit={PAGE_LIMIT}
+            selectedId={selectedUserId}
+            onSelect={handleSelectUser}
           />
+          <AdminUserDetail userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+          <AdminCircles enabled={isAdmin} />
+          <AdminCommunities enabled={isAdmin} />
+          <AdminFrozen enabled={isAdmin} />
+          <AdminTickets enabled={isAdmin} />
         </>
       )}
     </div>

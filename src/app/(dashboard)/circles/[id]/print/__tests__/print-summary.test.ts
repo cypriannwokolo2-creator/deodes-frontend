@@ -146,12 +146,12 @@ describe("buildMemberBalances", () => {
 
   it("falls back to a readable name when the member has none", () => {
     const [balance] = buildMemberBalances([member({ userName: null })], [])
-    expect(balance.displayName).toBe("Anonymous")
+    expect(balance.displayName).toBe("Circle member")
   })
 
   it("treats a blank name as absent", () => {
     const [balance] = buildMemberBalances([member({ userName: "   " })], [])
-    expect(balance.displayName).toBe("Anonymous")
+    expect(balance.displayName).toBe("Circle member")
   })
 
   it("returns a zeroed row for a member with no activity", () => {

@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { User } from "@/types"
 
-const { mockPost } = vi.hoisted(() => ({ mockPost: vi.fn() }))
+const { mockPost, mockGet, mockClearApiClientState } = vi.hoisted(() => ({
+  mockPost: vi.fn(),
+  mockGet: vi.fn(),
+  mockClearApiClientState: vi.fn(),
+}))
 
 vi.mock("@/lib/api-client", () => ({
   post: mockPost,
+  get: mockGet,
+  clearApiClientState: mockClearApiClientState,
 }))
 
 vi.mock("@/lib/wallet/registry", () => ({
@@ -64,6 +70,15 @@ function resetState() {
   clearAccessToken()
   localStorage.clear()
   mockPost.mockReset()
+  mockPost.mockResolvedValue({ success: true })
+  mockGet.mockReset()
+  mockClearApiClientState.mockReset()
+  // Pass through to the real token store: the mock replaces
+  // clearApiClientState (which also resets the refresh latch), but tests
+  // still need the in-memory access token actually cleared on logout.
+  mockClearApiClientState.mockImplementation(() => {
+    clearAccessToken()
+  })
 }
 
 import { _setHmacKeyForTest } from "@/lib/wallet/hmac"
@@ -139,8 +154,17 @@ describe("useAuthStore", () => {
   })
 
   describe("checkAuth", () => {
-    it("restores an unexpired in-memory token without touching the network", async () => {
+    it("restores an unexpired token with a cached profile without touching the network", async () => {
       const future = Math.floor(Date.now() / 1000) + 3600
+      // Seed the HMAC-signed profile cache directly (setTokens persistence
+      // goes through async encryption which is env-sensitive in tests).
+      const { computeHmacSha256Sync } = await import("@/lib/wallet/hmac")
+      const hmac = computeHmacSha256Sync(JSON.stringify(user))
+      localStorage.setItem(USER_DATA_KEY, JSON.stringify({ user, hmac }))
+      mockPost.mockClear()
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+      fetchMock.mockClear()
+      // No session-cookie round trip: token already in memory.
       setAccessToken(makeToken(future))
 
       await useAuthStore.getState().checkAuth()
@@ -148,15 +172,32 @@ describe("useAuthStore", () => {
       const state = useAuthStore.getState()
       expect(state.isAuthenticated).toBe(true)
       expect(state.token).toBe(makeToken(future))
+      expect(state.user).toEqual(user)
       expect(state.isLoading).toBe(false)
-      expect(mockPost).not.toHaveBeenCalled()
-      expect(globalThis.fetch).not.toHaveBeenCalled()
+      // Hosted-wallet ensure is fire-and-forget; only the profile fetch matters here.
+      expect(mockGet.mock.calls.some(([url]) => url === "/me")).toBe(false)
+    })
+
+    it("fetches the profile via GET /me when the token is valid but the cache is empty", async () => {
+      const future = Math.floor(Date.now() / 1000) + 3600
+      setAccessToken(makeToken(future))
+      mockGet.mockResolvedValue({ data: { user } })
+
+      await useAuthStore.getState().checkAuth()
+
+      expect(mockGet).toHaveBeenCalledWith("/me")
+      const state = useAuthStore.getState()
+      expect(state.isAuthenticated).toBe(true)
+      expect(state.user).toEqual(user)
+      expect(state.isLoading).toBe(false)
     })
 
     it("rehydrates the access token from the session cookie when memory is empty", async () => {
       const future = Math.floor(Date.now() / 1000) + 3600
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
       fetchMock.mockResolvedValue(okJson({ authenticated: true, token: makeToken(future) }))
+      // Empty profile cache → falls through to GET /me for the user.
+      mockGet.mockResolvedValue({ data: { user } })
 
       await useAuthStore.getState().checkAuth()
 
@@ -164,7 +205,8 @@ describe("useAuthStore", () => {
       expect(state.isAuthenticated).toBe(true)
       expect(state.token).toBe(makeToken(future))
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/auth/session")
-      expect(mockPost).not.toHaveBeenCalled()
+      expect(mockGet).toHaveBeenCalledWith("/me")
+      expect(state.user).toEqual(user)
     })
 
     it("logs out when the session cookie yields no token", async () => {
@@ -179,15 +221,15 @@ describe("useAuthStore", () => {
       expect(state.isLoading).toBe(false)
     })
 
-    it("refreshes the profile via /auth/me when the token has expired", async () => {
+    it("refreshes the profile via GET /me when the token has expired", async () => {
       const expired = Math.floor(Date.now() / 1000) - 3600
       setAccessToken(makeToken(expired))
-      mockPost.mockResolvedValue({ data: { user } })
+      mockGet.mockResolvedValue({ data: { user } })
 
       await useAuthStore.getState().checkAuth()
 
       const state = useAuthStore.getState()
-      expect(mockPost).toHaveBeenCalledWith("/auth/me")
+      expect(mockGet).toHaveBeenCalledWith("/me")
       expect(state.isAuthenticated).toBe(true)
       expect(state.user).toEqual(user)
       // The refreshed profile is persisted with its HMAC signature.
@@ -201,7 +243,7 @@ describe("useAuthStore", () => {
     it("logs the user out when the token refresh fails", async () => {
       const expired = Math.floor(Date.now() / 1000) - 3600
       setAccessToken(makeToken(expired))
-      mockPost.mockRejectedValue(
+      mockGet.mockRejectedValue(
         Object.assign(new Error("refresh failed"), { response: { status: 401 } }),
       )
 
@@ -218,7 +260,7 @@ describe("useAuthStore", () => {
       const expired = Math.floor(Date.now() / 1000) - 3600
       setAccessToken(makeToken(expired))
       // No status: network blip / backend restart, not an auth rejection.
-      mockPost.mockRejectedValue(new Error("network down"))
+      mockGet.mockRejectedValue(new Error("network down"))
 
       await useAuthStore.getState().checkAuth()
 

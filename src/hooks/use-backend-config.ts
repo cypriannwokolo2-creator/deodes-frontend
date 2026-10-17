@@ -12,6 +12,8 @@
  * unreadable, `googleEnabled` stays true and the button renders — a dead
  * button that 503s is annoying, but hiding login paths on a transient
  * network blip is worse. Only an explicit `google_enabled: false` hides it.
+ * Same rule for `emailConfigured`: only explicit `email.configured: false`
+ * raises the delivery warning banner.
  */
 
 import { useEffect, useState } from "react"
@@ -19,23 +21,30 @@ import { API_BASE_URL } from "@/lib/constants"
 
 export interface BackendConfig {
   googleEnabled: boolean
+  emailConfigured: boolean
 }
 
 let cachedPromise: Promise<BackendConfig> | null = null
+
+const defaults = (): BackendConfig => ({ googleEnabled: true, emailConfigured: true })
 
 export function fetchBackendConfig(): Promise<BackendConfig> {
   if (!cachedPromise) {
     cachedPromise = fetch(`${API_BASE_URL}/config`, { credentials: "omit" })
       .then(async (res): Promise<BackendConfig> => {
-        if (!res.ok) return { googleEnabled: true }
+        if (!res.ok) return defaults()
         const json = (await res.json()) as {
-          data?: { google_enabled?: unknown }
+          data?: { google_enabled?: unknown; email?: { configured?: unknown } }
         }
-        const flag = json?.data?.google_enabled
-        // Explicit false hides; anything else (true/missing/garbage) shows.
-        return { googleEnabled: flag !== false }
+        const googleFlag = json?.data?.google_enabled
+        const emailFlag = json?.data?.email?.configured
+        // Explicit false hides/warns; anything else (true/missing/garbage) stays quiet.
+        return {
+          googleEnabled: googleFlag !== false,
+          emailConfigured: emailFlag !== false,
+        }
       })
-      .catch(() => ({ googleEnabled: true }))
+      .catch(() => defaults())
   }
   return cachedPromise
 }
@@ -46,7 +55,7 @@ export function resetBackendConfigCache(): void {
 }
 
 export function useBackendConfig(): BackendConfig {
-  const [config, setConfig] = useState<BackendConfig>({ googleEnabled: true })
+  const [config, setConfig] = useState<BackendConfig>(defaults())
 
   useEffect(() => {
     let cancelled = false

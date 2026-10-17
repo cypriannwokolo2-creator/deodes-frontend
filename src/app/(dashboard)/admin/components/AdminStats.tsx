@@ -27,7 +27,7 @@ export function AdminStats({ metrics, loading }: AdminStatsProps) {
     { label: "Total users", value: String(metrics?.totalUsers ?? "—"), accent: "border-l-emerald-400", text: "text-emerald-400", icon: Users },
     { label: "Total circles", value: String(metrics?.totalCircles ?? "—"), accent: "border-l-aurora-violet", text: "text-aurora-violet", icon: CircleDot },
     { label: "Active circles", value: String(metrics?.activeCircles ?? "—"), accent: "border-l-amber-400", text: "text-amber-400", icon: Activity },
-    { label: "Volume (USD)", value: formatVolume(metrics?.totalVolumeUSD), accent: "border-l-emerald-400", text: "text-emerald-400", icon: Coins },
+    { label: "Volume (USDC)", value: formatVolume(metrics?.totalVolumeUSD), accent: "border-l-emerald-400", text: "text-emerald-400", icon: Coins },
   ]
 
   return (

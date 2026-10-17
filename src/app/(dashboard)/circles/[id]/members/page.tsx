@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { ArrowLeft, Users, Inbox, Hash, Search, SlidersHorizontal, X } from "lucide-react"
 import { useCircleMembers, useCircle } from "@/hooks/use-circles"
+import { useDebounce } from "@/hooks/use-debounce"
 import { useAuth } from "@/hooks/use-auth"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState, MemberTabsEmptyState } from "@/components/shared/empty-state"
@@ -19,6 +20,7 @@ import { formatAddress } from "@/lib/formatters"
 import { cn } from "@/lib/cn"
 import type { MemberStatus } from "@/types"
 import { filterCircleMembers, type JoinedFilter } from "./member-filters"
+import { displayNameOf } from "@/lib/profile/names"
 
 const statusVariantMap: Record<
   MemberStatus,
@@ -48,9 +50,10 @@ export default function CircleMembersPage() {
 
   const { user } = useAuth()
   const { data: circle } = useCircle(circleId)
-  const { data: members = [], isLoading, isError } = useCircleMembers(circleId)
-  const organizerId = circle?.organizerId
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
+  const { data: members = [], isLoading, isError } = useCircleMembers(circleId, debouncedSearch)
+  const organizerId = circle?.organizerId
   const [status, setStatus] = useState("")
   const [position, setPosition] = useState("")
   const [joined, setJoined] = useState<JoinedFilter>("")
@@ -75,8 +78,8 @@ export default function CircleMembersPage() {
     [members],
   )
   const filteredMembers = useMemo(
-    () => filterCircleMembers(members, { search, status, position, joined }),
-    [members, search, status, position, joined],
+    () => filterCircleMembers(members, { search: "", status, position, joined }),
+    [members, status, position, joined],
   )
   const hasFilters = Boolean(search || status || position || joined)
 
@@ -223,7 +226,7 @@ export default function CircleMembersPage() {
               <div className="divide-y divide-border">
                 {filteredMembers.map((member) => {
               const isCurrentUser = member.userId === user?.id
-              const displayName = member.userName || "Anonymous"
+              const displayName = displayNameOf(member) ?? "Circle member"
               const statusCfg =
                 statusVariantMap[member.status] || statusVariantMap.left
 

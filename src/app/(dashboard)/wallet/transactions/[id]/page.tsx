@@ -144,7 +144,7 @@ export default function TransactionDetailPage() {
         </div>
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{tx.type === "received" ? "Received" : "Sent"}</p>
         <p className={cn("text-4xl font-bold font-heading", tx.type === "received" ? "text-emerald-400" : "text-foreground")}>
-          {tx.type === "received" ? "+" : "-"}${tx.amount.toFixed(2)}
+          {tx.type === "received" ? "+" : "-"}{tx.amount.toFixed(2)} USDC
         </p>
         <p className="text-sm text-muted-foreground">{tx.description}</p>
       </div>
@@ -162,7 +162,7 @@ export default function TransactionDetailPage() {
         <div className="flex items-center justify-between px-5 py-4">
           <span className="text-sm text-muted-foreground">Amount</span>
           <span className={cn("text-sm font-semibold", tx.type === "received" ? "text-emerald-400" : "text-foreground")}>
-            {tx.type === "received" ? "+" : "-"}${tx.amount.toFixed(2)} USDC
+            {tx.type === "received" ? "+" : "-"}{tx.amount.toFixed(2)} USDC
           </span>
         </div>
         {tx.txnHash && (

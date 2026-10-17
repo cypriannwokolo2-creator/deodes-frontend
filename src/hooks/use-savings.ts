@@ -36,6 +36,9 @@ export interface SavingsGoal {
   targetDate?: string | null
   circleId?: string | null
   autoReserve: boolean
+  autoAmount?: number
+  autoFrequency?: string
+  lastAutoAt?: string | null
   status: SavingsGoalStatus
   createdAt: string
   updatedAt: string
@@ -58,6 +61,8 @@ export interface CreateGoalInput {
   targetDate?: string | null
   circleId?: string | null
   autoReserve?: boolean
+  autoAmount?: number
+  autoFrequency?: string
 }
 
 export type UpdateGoalInput = Partial<{
@@ -68,6 +73,8 @@ export type UpdateGoalInput = Partial<{
   targetDate: string | null
   circleId: string | null
   autoReserve: boolean
+  autoAmount?: number
+  autoFrequency?: string
   status: SavingsGoalStatus
 }>
 

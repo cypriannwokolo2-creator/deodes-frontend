@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useBackendConfig } from "@/hooks/use-backend-config";
+import { getPendingInvite } from "@/lib/app-host";
 
 function GoogleMark({ className }: { className?: string }) {
   return (
@@ -31,11 +33,18 @@ function GoogleMark({ className }: { className?: string }) {
  * Fail-open: renders while loading or when the config is unreachable. */
 export function GoogleButton({ mode }: { mode: "signin" | "signup" }) {
   const { googleEnabled } = useBackendConfig()
+  const [startHref, setStartHref] = useState("/api/auth/google/start")
+  // A circle invite waiting behind auth rides along as OAuth `next`, so the
+  // callback lands back on /invite/<code> instead of the home page.
+  useEffect(() => {
+    const pending = getPendingInvite()
+    if (pending) setStartHref(`/api/auth/google/start?next=${encodeURIComponent(pending)}`)
+  }, [])
   if (!googleEnabled) return null
   return (
     <a
       data-testid="google-button"
-      href="/api/auth/google/start"
+      href={startHref}
       className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/[0.03] text-sm font-heading font-semibold text-foreground transition-all hover:bg-white/[0.07] focus:outline-none focus:ring-2 focus:ring-foreground"
     >
       <GoogleMark />

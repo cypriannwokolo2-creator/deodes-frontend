@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
 import { post } from "@/lib/api-client";
 import { recordMetric, captureAuthError } from "@/lib/monitoring";
-import { useMultiWalletStore } from "@/stores/multi-wallet-store";
+import { getWalletRegistry } from "@/lib/wallet/registry";
 import { useAuthStore } from "@/stores/auth-store";
 import { User } from "@/types";
 
@@ -419,8 +419,7 @@ export const useAuthFlowStore = create<AuthFlowStore>()(
             // user spins on 401s with no way out. The fresh address wins for
             // this whole attempt (nonce + sign + verify stay consistent).
             try {
-              const liveAdapter =
-                useMultiWalletStore.getState().wallets[walletId]?.adapter;
+              const liveAdapter = getWalletRegistry().getAdapter(walletId);
               const fresh = await liveAdapter?.getPublicKey?.();
               if (typeof fresh === "string" && fresh && fresh !== address) {
                 address = fresh;
@@ -476,8 +475,7 @@ export const useAuthFlowStore = create<AuthFlowStore>()(
               mode: signingMode,
               walletId: signingWalletId,
             });
-            const wallets = useMultiWalletStore.getState().wallets;
-            const adapter = wallets[signingWalletId]?.adapter;
+            const adapter = getWalletRegistry().getAdapter(signingWalletId);
             if (!adapter) {
               throw new Error("Wallet adapter not found");
             }

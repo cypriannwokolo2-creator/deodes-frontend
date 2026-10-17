@@ -78,6 +78,14 @@ export const queryKeys = {
     metrics: () => ["admin", "metrics"] as const,
     users: (filters?: { search?: string; page?: number; limit?: number }) =>
       ["admin", "users", filters?.search, filters?.page, filters?.limit] as const,
+    circles: (filters?: { search?: string; page?: number; limit?: number }) =>
+      ["admin", "circles", filters?.search, filters?.page, filters?.limit] as const,
+    communities: (filters?: { search?: string; page?: number; limit?: number }) =>
+      ["admin", "communities", filters?.search, filters?.page, filters?.limit] as const,
+    frozen: () => ["admin", "frozen-wallets"] as const,
+    tickets: (filters?: { status?: string; page?: number; limit?: number }) =>
+      ["admin", "tickets", filters?.status, filters?.page, filters?.limit] as const,
+    userDetail: (id: string) => ["admin", "user", id] as const,
   },
   savings: {
     all: ["savings-goals"] as const,

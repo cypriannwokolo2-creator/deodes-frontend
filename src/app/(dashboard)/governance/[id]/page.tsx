@@ -18,7 +18,7 @@ import {
 import Link from "next/link"
 import { Button, ButtonLink } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
-import { useGovernanceProposal, useVoteOnProposal } from "@/hooks/use-governance"
+import { useGovernanceProposal, useVoteOnProposal, useExecuteProposal, useCancelProposal } from "@/hooks/use-governance"
 import { QUORUM_THRESHOLD_VOTES, type VoteChoice } from "@/lib/governance-api"
 import { calculateQuorum, QUORUM_THRESHOLD } from "@/lib/quorum"
 import { useGovernanceVotes } from "@/stores/governance-votes-store"
@@ -45,6 +45,10 @@ export default function ProposalDetailPage() {
 
   const { data: proposal, isLoading } = useGovernanceProposal(id)
   const voteMutation = useVoteOnProposal(id)
+  const executeMutation = useExecuteProposal(id)
+  const cancelMutation = useCancelProposal(id)
+  const timelockActive =
+    !!proposal?.timelockEndsAt && new Date(proposal.timelockEndsAt).getTime() > Date.now()
 
   const totalVotes = (proposal?.votesFor ?? 0) + (proposal?.votesAgainst ?? 0) + (proposal?.votesAbstain ?? 0)
   const forPercent = totalVotes ? Math.round(((proposal?.votesFor ?? 0) / totalVotes) * 100) : 0
@@ -309,6 +313,30 @@ export default function ProposalDetailPage() {
             <p className="text-xs text-muted-foreground">
               Passed proposals require a mandatory timelock window before execution on Arc smart contracts.
             </p>
+            {proposal.status === "passed" && (
+              <div className="flex flex-col gap-2 pt-1">
+                {!timelockActive && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => executeMutation.mutate()}
+                    disabled={executeMutation.isPending}
+                  >
+                    {executeMutation.isPending ? "Executing…" : "Execute proposal"}
+                  </Button>
+                )}
+                {timelockActive && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelMutation.mutate()}
+                    disabled={cancelMutation.isPending}
+                  >
+                    {cancelMutation.isPending ? "Cancelling…" : "Vote to cancel"}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="border border-white/10 rounded-2xl p-6 bg-white/[0.02] space-y-3">

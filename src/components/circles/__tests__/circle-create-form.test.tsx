@@ -271,7 +271,7 @@ describe("validateCircleStep — unit tests", () => {
     it("rejects non-USDC currency (circles are USDC-only)", () => {
       const result = validateCircleStep(
         2,
-        { ...base, currency: "XLM" as never, contributionAmount: 50 },
+        { ...base, currency: "EUR" as never, contributionAmount: 50 },
         500
       )
       expect(result.success).toBe(false)

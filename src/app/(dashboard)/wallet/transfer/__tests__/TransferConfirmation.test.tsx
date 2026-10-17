@@ -22,6 +22,10 @@ vi.mock("@/lib/formatters", () => ({
   formatAddress: (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`,
 }))
 
+vi.mock("@/lib/api-client", () => ({
+  post: vi.fn().mockResolvedValue({ notified: true }),
+}))
+
 // Mock fetch for the Arc eth_getTransactionReceipt polling in useTransferPoll
 const mockFetch = vi.fn()
 function pendingReceipt() {
@@ -140,6 +144,75 @@ describe("TransferConfirmation", () => {
     })
 
     expect(screen.getByText("Transaction Failed")).toBeDefined()
+  })
+
+  it("reports a finalized outcome once for in-app notifications", async () => {
+    const { post } = await import("@/lib/api-client")
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ jsonrpc: "2.0", id: 1, result: { status: "0x1" } }),
+    })
+
+    render(<TransferConfirmation {...DEFAULT_PROPS} />)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post).toHaveBeenCalledWith(
+      `/wallets/transfers/${DEFAULT_PROPS.txnHash}/outcome`,
+      { status: "finalized" },
+    )
+  })
+
+  it("reports a failed outcome, and nothing while pending", async () => {    const { post } = await import("@/lib/api-client")
+
+    render(<TransferConfirmation {...DEFAULT_PROPS} />)
+
+    // Still pending after the first poll — no report yet.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+    expect(post).not.toHaveBeenCalled()
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ jsonrpc: "2.0", id: 1, result: { status: "0x0" } }),
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000)
+    })
+
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post).toHaveBeenCalledWith(
+      `/wallets/transfers/${DEFAULT_PROPS.txnHash}/outcome`,
+      { status: "failed" },
+    )
+  })
+
+  it("shows the actual network fee from the receipt instead of the estimate", async () => {
+    // 31753 gas * 21 Gwei = 0.0006668… USDC
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          status: "0x1",
+          gasUsed: "0x7c09",
+          effectiveGasPrice: "0x4e3b29200",
+        },
+      }),
+    })
+
+    render(<TransferConfirmation {...DEFAULT_PROPS} />)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+
+    expect(screen.getByText("0.0007 USDC")).toBeDefined()
   })
 
   it("copies tx hash to clipboard when copy button is clicked", async () => {

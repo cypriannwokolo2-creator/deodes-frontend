@@ -30,6 +30,19 @@ are link-and-sweep funding only; auto-pay vs manual is chosen per circle.
   (`fee = pool * 50 / 10000`), rotation-without-repeat payouts, exact fee math
   mirrored bit-for-bit in the backend.
 
+## Community & growth (paste)
+Deodes doesn't acquire users one by one — every circle is a viral cell. A
+10-member circle is 10 people with a shared financial stake who each know 10
+more people they trust with money; invites travel over WhatsApp and Telegram
+through the existing share flows, and each completed payout is a public proof
+that recruits the next circle. Community circles (token-gated, DAO-run) let
+cooperatives, campuses, and trade associations run their own programs with
+their own rules, while DeoScore gives savers a status worth showing off —
+reputation is the retention engine. Growth compounds circle by circle:
+payouts prove, members invite, new circles form, scores deepen. The builder
+side stays open: public repos, documented event schema, and Arc office hours
+turn integrators into contributors.
+
 ## Checklist
 - [x] Live on Arc mainnet (https://deodes.com, chain 5042)
 - [x] Public repos (frontend, backend, contracts)

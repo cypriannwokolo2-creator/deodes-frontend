@@ -15,8 +15,12 @@ import {
 } from "@/types";
 
 function extractErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-  if (apiErr) return apiErr;
+  const data = (err as { response?: { data?: { error?: string; message?: string; detail?: string } } })?.response?.data;
+  if (data?.error) return data.error;
+  // Problem-envelope errors (e.g. INSUFFICIENT_FUNDS with the shortfall)
+  // carry message/detail instead of error.
+  if (data?.message) return data.message;
+  if (data?.detail) return data.detail;
   if (err instanceof Error) return err.message;
   return fallback;
 }
@@ -157,11 +161,15 @@ export function useCircle(id: string) {
   });
 }
 
-export function useCircleMembers(circleId: string) {
+export function useCircleMembers(circleId: string, search?: string) {
+  const q = (search ?? "").trim()
   return useQuery({
-    queryKey: queryKeys.circles.members(circleId),
+    queryKey: [...queryKeys.circles.members(circleId), q],
     queryFn: async () => {
-      const response = await get<ApiResponse<{ members: CircleMember[] }>>(`/circles/${circleId}/members`);
+      const path = q
+        ? `/circles/${circleId}/members?search=${encodeURIComponent(q)}`
+        : `/circles/${circleId}/members`;
+      const response = await get<ApiResponse<{ members: CircleMember[] }>>(path);
       return response.data?.members ?? [];
     },
     enabled: !!circleId,

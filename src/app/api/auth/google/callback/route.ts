@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createHash } from "crypto"
 import {
   GOOGLE_STATE_COOKIE,
   cookieDomain,
@@ -31,13 +32,18 @@ function clientIp(request: NextRequest): string {
 /**
  * Explicit audit log for Google sign-ins (operator-requested).
  * NOTE: intentionally uses direct stdout instead of @/lib/logger, because
- * the shared logger redacts emails to "[email]". Only email/sub/name/ip/ua
- * are logged — never codes, tokens, or secrets.
+ * the shared logger redacts emails to "[email]". M3: the email is logged as
+ * a SHA-256 hash (correlation without PII retention) — never plaintext,
+ * never codes, tokens, or secrets.
  */
 function auditGoogleLogin(fields: Record<string, unknown>): void {
   const line = JSON.stringify({ tag: "google-login", ts: new Date().toISOString(), ...fields })
   // eslint-disable-next-line no-console
   console.info(line)
+}
+
+function hashEmail(email: string): string {
+  return createHash("sha256").update(email.trim().toLowerCase()).digest("hex")
 }
 
 function fail(request: NextRequest, reason: string): NextResponse {
@@ -71,9 +77,8 @@ export async function GET(request: NextRequest) {
     const profile = await verifyIdToken(tokens.id_token)
     auditGoogleLogin({
       ok: true,
-      email: profile.email,
+      email_hash: hashEmail(profile.email),
       google_sub: profile.sub,
-      name: profile.name,
       ip: clientIp(request),
       ua: request.headers.get("user-agent")?.slice(0, 200) ?? null,
     })

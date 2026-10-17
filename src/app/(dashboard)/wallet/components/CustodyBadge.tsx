@@ -7,8 +7,6 @@ import { formatAddress } from "@/lib/formatters"
 import { cn } from "@/lib/cn"
 
 interface CustodyBadgeProps {
-  connectedName: string | null
-  connectedAddress: string | null
   hostedAddress: string | null
   loading: boolean
   onCopied: () => void
@@ -16,13 +14,10 @@ interface CustodyBadgeProps {
 }
 
 /**
- * Custody-honest wallet badge: a connected 0x wallet shows its connector
- * name, otherwise the hosted Deodes wallet is labelled as hosted. Both
- * offer copy plus an Arc explorer link.
+ * Custody badge: one account, one hosted Deodes wallet. Shows the hosted
+ * address with copy plus an Arc explorer link.
  */
 export function CustodyBadge({
-  connectedName,
-  connectedAddress,
   hostedAddress,
   loading,
   onCopied,
@@ -36,28 +31,22 @@ export function CustodyBadge({
     )
   }
 
-  const address = connectedAddress ?? hostedAddress
+  const address = hostedAddress
   if (!address) return null
-  const isHosted = !connectedAddress
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <span
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-heading font-semibold",
-          isHosted
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-            : "border-aurora-violet/30 bg-aurora-violet/10 text-aurora-violet",
+          "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
         )}
       >
         <span
           aria-hidden="true"
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            isHosted ? "bg-emerald-400" : "bg-aurora-violet",
-          )}
+          className={cn("h-1.5 w-1.5 rounded-full", "bg-emerald-400")}
         />
-        {isHosted ? "Hosted Deodes wallet" : `Connected · ${connectedName ?? "Wallet"}`}
+        Hosted Deodes wallet
       </span>
       <CopyButton
         text={address}

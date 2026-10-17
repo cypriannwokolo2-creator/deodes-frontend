@@ -14,6 +14,8 @@ interface AdminUsersProps {
   page: number
   onPage: (page: number) => void
   limit: number
+  selectedId?: string | null
+  onSelect?: (id: string) => void
 }
 
 function RolePill({ role }: { role: string | undefined }) {
@@ -31,7 +33,7 @@ function RolePill({ role }: { role: string | undefined }) {
   )
 }
 
-export function AdminUsers({ users, total, loading, search, onSearch, page, onPage, limit }: AdminUsersProps) {
+export function AdminUsers({ users, total, loading, search, onSearch, page, onPage, limit, selectedId, onSelect }: AdminUsersProps) {
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
   return (
@@ -76,9 +78,20 @@ export function AdminUsers({ users, total, loading, search, onSearch, page, onPa
                   {(u.displayName?.charAt(0) ?? u.walletAddress.slice(0, 2)).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {u.displayName ?? formatAddress(u.walletAddress)}
-                  </p>
+                  {onSelect ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(u.id)}
+                      aria-label={`Inspect ${u.displayName ?? u.walletAddress}`}
+                      className={`truncate text-sm font-medium hover:text-amber-400 hover:underline ${selectedId === u.id ? "text-amber-400" : "text-foreground"}`}
+                    >
+                      {u.displayName ?? formatAddress(u.walletAddress)}
+                    </button>
+                  ) : (
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {u.displayName ?? formatAddress(u.walletAddress)}
+                    </p>
+                  )}
                   <p className="truncate font-mono text-xs text-muted-foreground">
                     {formatAddress(u.walletAddress)}
                     {u.moiScore !== undefined ? ` · DeoScore ${u.moiScore}` : ""}

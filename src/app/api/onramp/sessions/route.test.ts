@@ -58,12 +58,30 @@ function makeRequest(body: unknown, cookie?: string) {
 const ARC_ADDR = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
 const cookieFor = (sub: string) => `${ACCESS_TOKEN_COOKIE}=${fakeJwt(sub)}`;
 
+/** Stubs the backend GET /v1/me session check used by authorize. */
+function stubBackendMe(id: string | null) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      id === null
+        ? { ok: false, status: 401, json: async () => ({}) }
+        : {
+            ok: true,
+            status: 200,
+            json: async () => ({ data: { user: { id } } }),
+          },
+    ),
+  );
+}
+
 describe("POST /api/onramp/sessions", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     capturedAuthorize = null;
     capturedServerOptions = null;
     vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "https://deodes.com/v1");
+    stubBackendMe("user-1");
   });
 
   it("returns 503 when the active env key is unset (fail-closed)", async () => {
@@ -114,6 +132,33 @@ describe("POST /api/onramp/sessions", () => {
       ),
     );
     expect(notEvm.status).toBe(401);
+  });
+
+  it("rejects forged cookies the backend does not recognize", async () => {
+    vi.stubEnv("CIRCLE_ENV", "sandbox");
+    vi.stubEnv("CIRCLE_TEST_API_KEY", "TEST_API_KEY:x:y");
+    const { POST } = await import("./route");
+
+    // Cookie parses to user-1 and body agrees, but the backend session
+    // belongs to someone else: forged bearer, no mint.
+    stubBackendMe("attacker");
+    const forged = await POST(
+      makeRequest(
+        { appUserId: "user-1", destinationAddress: ARC_ADDR },
+        cookieFor("user-1"),
+      ),
+    );
+    expect(forged.status).toBe(401);
+
+    // Backend rejects the bearer outright (expired/revoked session).
+    stubBackendMe(null);
+    const rejected = await POST(
+      makeRequest(
+        { appUserId: "user-1", destinationAddress: ARC_ADDR },
+        cookieFor("user-1"),
+      ),
+    );
+    expect(rejected.status).toBe(401);
   });
 
   it("toggles keys by CIRCLE_ENV (sandbox default, production key)", async () => {

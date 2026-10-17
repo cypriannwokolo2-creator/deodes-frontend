@@ -160,9 +160,9 @@ describe("createCircleSchema", () => {
   })
 
   it("fixes currency to USDC", () => {
-    const xlm = safeParse(createCircleSchema, { ...valid, currency: "XLM" })
-    expect(xlm.success).toBe(false)
-    if (!xlm.success) expect(xlm.errors.currency).toContain("USDC")
+    const nonUsdc = safeParse(createCircleSchema, { ...valid, currency: "EUR" })
+    expect(nonUsdc.success).toBe(false)
+    if (!nonUsdc.success) expect(nonUsdc.errors.currency).toContain("USDC")
   })
 
   it("bounds members, scores, fees, grace, and strikes", () => {

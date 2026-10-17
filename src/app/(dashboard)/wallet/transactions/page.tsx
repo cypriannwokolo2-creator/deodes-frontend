@@ -522,7 +522,7 @@ export default function TransactionsPage() {
       label: "Amount",
       cell: (tx) => (
         <span className={cn("font-semibold", tx.type === "sent" ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400")}>
-          {tx.type === "sent" ? "-" : "+"}${tx.amount.toFixed(2)}
+          {tx.type === "sent" ? "-" : "+"}{tx.amount.toFixed(2)} USDC
         </span>
       ),
     },

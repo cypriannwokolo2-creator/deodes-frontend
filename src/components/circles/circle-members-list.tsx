@@ -9,6 +9,7 @@ import { formatAddress } from "@/lib/formatters";
 import { cn } from "@/lib/cn";
 import type { CircleMember, MemberStatus } from "@/types";
 import { memo, useMemo } from "react";
+import { displayNameOf } from "@/lib/profile/names"
 
 const statusVariantMap: Record<MemberStatus, "success" | "warning" | "destructive" | "default"> = {
   active: "success",
@@ -34,7 +35,7 @@ interface MemberRowProps {
 }
 
 const MemberRow = memo(function MemberRow({ member, isCurrentUser }: MemberRowProps) {
-  const displayName = member.userName || "Anonymous";
+  const displayName = displayNameOf(member) ?? "Circle member";
   const initials = displayName.slice(0, 2).toUpperCase();
 
   return (

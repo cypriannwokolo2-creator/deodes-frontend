@@ -1,7 +1,8 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { del, get, patch, post } from "@/lib/api-client"
+import { del, get, patch, post, getErrorMessage } from "@/lib/api-client"
+import { useUIStore } from "@/stores/ui-store"
 import { queryKeys } from "@/lib/query-keys"
 
 export interface Community {
@@ -131,63 +132,87 @@ export function useCommunityMembership(communityId: string, enabled: boolean) {
 
 export function useJoinCommunity(communityId: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
   return useMutation({
     mutationFn: () => post(`/communities/${communityId}/join`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.detail(communityId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.membership(communityId) })
     },
+    onError: (err) => {
+      addToast({ type: "error", title: "Failed to join community", description: getErrorMessage(err) })
+    },
   })
 }
 
 export function useTogglePinAnnouncement(communityId: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
   return useMutation({
     mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
       patch(`/communities/${communityId}/announcements/${id}/pin`, { pinned }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.detail(communityId) })
     },
+    onError: (err) => {
+      addToast({ type: "error", title: "Failed to update pin", description: getErrorMessage(err) })
+    },
   })
 }
 
 export function useDeleteAnnouncement(communityId: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
   return useMutation({
     mutationFn: (id: string) => del(`/communities/${communityId}/announcements/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.detail(communityId) })
+    },
+    onError: (err) => {
+      addToast({ type: "error", title: "Failed to delete announcement", description: getErrorMessage(err) })
     },
   })
 }
 
 export function useCreateAnnouncement(communityId: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
   return useMutation({
     mutationFn: (content: string) => post(`/communities/${communityId}/announcements`, { content }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.detail(communityId) })
+    },
+    onError: (err) => {
+      addToast({ type: "error", title: "Failed to post announcement", description: getErrorMessage(err) })
     },
   })
 }
 
 export function useRemoveCommunityMember(communityId: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
   return useMutation({
     mutationFn: (targetId: string) => del(`/communities/${communityId}/members/${targetId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.detail(communityId) })
+    },
+    onError: (err) => {
+      addToast({ type: "error", title: "Failed to remove member", description: getErrorMessage(err) })
     },
   })
 }
 
 export function useTransferCommunityOwnership(communityId: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
   return useMutation({
     mutationFn: (newOwnerId: string) =>
       post(`/communities/${communityId}/transfer-ownership`, { newOwnerId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.communities.detail(communityId) })
+    },
+    onError: (err) => {
+      addToast({ type: "error", title: "Failed to transfer ownership", description: getErrorMessage(err) })
     },
   })
 }

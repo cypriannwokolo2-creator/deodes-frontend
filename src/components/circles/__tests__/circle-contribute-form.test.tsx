@@ -4,18 +4,17 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CircleContributeForm } from "../circle-contribute-form";
 
-const ADDR = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
+const TREASURY = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
 const HASH = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
-const mockSignMessage = vi.fn();
 const mockMutateAsync = vi.fn();
-
-vi.mock("@/hooks/use-multi-wallet", () => ({
-  useMultiWallet: () => ({ address: ADDR, signMessage: mockSignMessage }),
-}));
 
 vi.mock("@/hooks/use-circles", () => ({
   useContribute: () => ({ mutateAsync: mockMutateAsync, isPending: false }),
+}));
+
+vi.mock("@/lib/clipboard", () => ({
+  copyToClipboard: vi.fn().mockResolvedValue(true),
 }));
 
 function renderForm(props: Partial<React.ComponentProps<typeof CircleContributeForm>> = {}) {
@@ -33,54 +32,55 @@ function renderForm(props: Partial<React.ComponentProps<typeof CircleContributeF
   );
 }
 
-describe("CircleContributeForm (Arc USDC)", () => {
+describe("CircleContributeForm (Arc USDC, manual hash)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSignMessage.mockResolvedValue("0xsig");
     mockMutateAsync.mockResolvedValue({ id: "c-1" });
   });
 
-  it("rejects non-USDC currency without touching the wallet", async () => {
+  it("rejects non-USDC currency without submitting", async () => {
     const user = userEvent.setup();
-    renderForm({ currency: "XLM" });
-    await user.click(screen.getByRole("button", { name: /Confirm & Sign/ }));
+    renderForm({ currency: "EUR" });
+    await user.click(screen.getByRole("button", { name: /Submit contribution/ }));
     expect(await screen.findByRole("alert")).toBeDefined();
     expect(screen.getByRole("alert").textContent).toMatch(/Only USDC on Arc/i);
-    expect(mockSignMessage).not.toHaveBeenCalled();
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
-  it("requires an Arc transaction hash when no treasury auto-pay is configured", async () => {
+  it("requires an Arc transaction hash", async () => {
     const user = userEvent.setup();
     renderForm();
-    await user.click(screen.getByRole("button", { name: /Confirm & Sign/ }));
+    await user.click(screen.getByRole("button", { name: /Submit contribution/ }));
     expect(await screen.findByRole("alert")).toBeDefined();
     expect(screen.getByRole("alert").textContent).toMatch(/Transaction hash is required/i);
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
-  it("signs the intent then submits amount/round/txnHash", async () => {
+  it("submits amount/round/txnHash without any wallet connection", async () => {
     const user = userEvent.setup();
     const onSuccess = vi.fn();
     renderForm({ onSuccess });
     await user.type(screen.getByLabelText(/Arc transaction hash/i), HASH);
-    await user.click(screen.getByRole("button", { name: /Confirm & Sign/ }));
-    await waitFor(() => expect(mockSignMessage).toHaveBeenCalledTimes(1));
-    expect(mockSignMessage.mock.calls[0][0]).toContain("circle-1");
+    await user.click(screen.getByRole("button", { name: /Submit contribution/ }));
     await waitFor(() =>
       expect(mockMutateAsync).toHaveBeenCalledWith({ amount: 100, roundNumber: 2, txnHash: HASH }),
     );
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
   });
 
-  it("surfaces wallet signature rejection", async () => {
+  it("shows the treasury address to pay when provided", async () => {
+    renderForm({ treasuryAddress: TREASURY });
+    expect(await screen.findByText("Treasury address")).toBeDefined();
+    expect(screen.getByText(TREASURY)).toBeDefined();
+  });
+
+  it("surfaces backend submission errors", async () => {
     const user = userEvent.setup();
-    mockSignMessage.mockRejectedValueOnce(new Error("Signature rejected."));
+    mockMutateAsync.mockRejectedValueOnce(new Error("Round closed."));
     renderForm();
     await user.type(screen.getByLabelText(/Arc transaction hash/i), HASH);
-    await user.click(screen.getByRole("button", { name: /Confirm & Sign/ }));
+    await user.click(screen.getByRole("button", { name: /Submit contribution/ }));
     expect(await screen.findByRole("alert")).toBeDefined();
-    expect(screen.getByRole("alert").textContent).toMatch(/Signature rejected/i);
-    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toMatch(/Round closed/i);
   });
 });

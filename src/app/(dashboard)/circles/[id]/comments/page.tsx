@@ -112,27 +112,10 @@ export default function CommentsPage() {
 
   const { data: circle } = useCircle(circleId)
 
-  const [comments, setComments] = useState<Comment[]>(generateMockComments)
-  const [newComment, setNewComment] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  const handlePost = useCallback(() => {
-    if (!newComment.trim()) return
-    setLoading(true)
-    const comment: Comment = {
-      id: `c${Date.now()}`,
-      userId: "anon",
-      userName: "You",
-      body: newComment.trim(),
-      createdAt: new Date().toISOString(),
-      likes: 0, likedByUser: false, isPinned: false,
-    }
-    setTimeout(() => {
-      setComments((prev) => [comment, ...prev])
-      setNewComment("")
-      setLoading(false)
-    }, 300)
-  }, [newComment])
+  // Circle comments have no backend yet (chat is E2EE DMs, a different
+  // domain). The list stays empty and posting stays hidden until the
+  // comments endpoint lands.
+  const [comments, setComments] = useState<Comment[]>([])
 
   const handleLike = useCallback((id: string) => {
     setComments((prev) => prev.map((c) => c.id === id ? { ...c, likedByUser: !c.likedByUser, likes: c.likedByUser ? c.likes - 1 : c.likes + 1 } : c))
@@ -162,21 +145,9 @@ export default function CommentsPage() {
         action={<ButtonLink href={`/circles/${circleId}`}  variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />}>Back</ButtonLink>}
       />
 
-      <div className="flex items-start gap-2">
-        <Avatar fallback="You" size="sm" className="shrink-0 mt-1" />
-        <div className="flex-1">
-          <textarea
-            aria-label="New comment"
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Share a thought about this circle..."
-            rows={2}
-            className="w-full bg-white/5 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground resize-none"
-          />
-          <div className="flex justify-end mt-2">
-            <Button variant="primary" size="sm" onClick={handlePost} isLoading={loading} disabled={!newComment.trim()} leftIcon={<Send className="h-3.5 w-3.5" />}>Post</Button>
-          </div>
-        </div>
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-aurora-violet">Coming soon</p>
+        <p className="mt-1 text-sm text-muted-foreground">Circle comments open with the comments backend — nothing posted here yet.</p>
       </div>
 
       {pinned.length > 0 && (

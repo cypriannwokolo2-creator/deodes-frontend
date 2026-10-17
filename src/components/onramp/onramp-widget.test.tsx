@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OnrampWidget, openOnrampPopup } from "./onramp-widget";
 
@@ -58,6 +58,8 @@ describe("OnrampWidget", () => {
     await waitFor(() => expect(fetchSession).toHaveBeenCalled());
     expect(fetchSession).toHaveBeenCalledWith({
       url: "/api/onramp/sessions",
+      // Double-submit CSRF header so the middleware lets the mint POST through.
+      headers: expect.any(Object),
       body: {
         appUserId: "user-1",
         destinationAddress: ARC_ADDR,
@@ -67,6 +69,26 @@ describe("OnrampWidget", () => {
     expect(mountIframe).toHaveBeenCalled();
     expect(settledCalls).toHaveLength(1);
     expect(onSettled).toHaveBeenCalledWith({ paymentId: "pay-1" });
+  });
+
+  it("offers a new-window fallback that mints its own popup session", async () => {
+    fetchSession.mockResolvedValue({ sessionToken: "sess-test" });
+    openWindow.mockResolvedValue({ status: "opened" });
+
+    render(
+      <OnrampWidget
+        appUserId="user-1"
+        destinationAddress={ARC_ADDR}
+        widgetBaseUrl="https://onramp.arc.io"
+      />,
+    );
+    await waitFor(() => expect(mountIframe).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: /open in a new window/i }));
+    await waitFor(() => expect(openWindow).toHaveBeenCalledTimes(1));
+    expect(openWindow).toHaveBeenCalledWith(
+      expect.objectContaining({ session: { sessionToken: "sess-test" } }),
+    );
   });
 
   it("popup helper returns blocked when the browser blocks it", async () => {

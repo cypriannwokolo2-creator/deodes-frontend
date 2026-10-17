@@ -45,6 +45,20 @@ export default function InvitePage() {
   const [isJoining, setIsJoining] = useState(false)
   const [joined, setJoined] = useState(false)
 
+  // Arrival consumes the remembered invite: the user is already here, so a
+  // later email login must not detour back to this page unexpectedly.
+  useEffect(() => {
+    let active = true
+    import("@/lib/app-host").then(({ getPendingInvite, clearPendingInvite }) => {
+      if (!active) return
+      const pending = getPendingInvite()
+      if (pending === `/invite/${encodeURIComponent(code)}` || pending === `/invite/${code}`) {
+        clearPendingInvite()
+      }
+    }).catch(() => {})
+    return () => { active = false }
+  }, [code])
+
   useEffect(() => {
     let cancelled = false
 
@@ -103,6 +117,20 @@ export default function InvitePage() {
 
   const handleJoin = async () => {
     if (state.phase !== "ready" || state.status !== "active") return
+    const invitePath = `/invite/${encodeURIComponent(state.invite.code)}`
+    // Signed-out visitors detour through auth first — the invite is
+    // remembered so login/register lands them straight back here.
+    try {
+      const { useAuthStore } = await import("@/stores/auth-store")
+      const { isAuthenticated } = useAuthStore.getState()
+      if (!isAuthenticated) {
+        const { savePendingInvite } = await import("@/lib/app-host")
+        savePendingInvite(invitePath)
+        addToast({ type: "error", title: "Sign in to join", description: "Create an account or log in, then you'll rejoin this circle." })
+        router.push("/register")
+        return
+      }
+    } catch {}
     setIsJoining(true)
     try {
       const { post } = await import("@/lib/api-client")
@@ -111,6 +139,20 @@ export default function InvitePage() {
       addToast({ type: "success", title: "You joined the circle" })
       router.push(`/circles/${state.invite.circleId}`)
     } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status === 401 || status === 403) {
+        try {
+          const { savePendingInvite } = await import("@/lib/app-host")
+          savePendingInvite(invitePath)
+        } catch {}
+        addToast({
+          type: "error",
+          title: "Sign in to join",
+          description: "Create an account or log in, then you'll rejoin this circle.",
+        })
+        router.push("/register")
+        return
+      }
       addToast({
         type: "error",
         title: "Could not join the circle",

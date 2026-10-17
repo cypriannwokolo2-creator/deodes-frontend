@@ -86,7 +86,7 @@ export function RoundDetail({
             </span>
 
             <span className="min-w-0 flex-1 truncate">
-              {participant.name ?? formatAddress(participant.userId)}
+              {participant.name ?? "Circle member"}
             </span>
 
             <span className="font-mono tabular-nums">

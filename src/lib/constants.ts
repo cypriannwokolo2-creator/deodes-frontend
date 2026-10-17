@@ -6,7 +6,7 @@ export const WS_URL =
 
 /** Arc network — mainnet only now (no more testnet). Override with NEXT_PUBLIC_ARC_NETWORK only for local dev. */
 export const ARC_NETWORK: "testnet" | "mainnet" =
-  (process.env.NEXT_PUBLIC_ARC_NETWORK as "testnet" | "mainnet") ?? "mainnet"
+  process.env.NEXT_PUBLIC_ARC_NETWORK === "testnet" ? "testnet" : "mainnet"
 
 /**
  * Arc chain IDs (docs.arc.io/arc/references/connect-to-arc):
@@ -88,9 +88,6 @@ export const DEO_SCORE_MAX = 1000
 export const DEO_SCORE_HIGH_THRESHOLD = 600
 
 export const MAX_PENDING_APPLICATIONS = 10
-
-/** Expiration duration for WalletConnect QR codes in milliseconds (2 minutes) */
-export const WC2_QR_EXPIRATION_MS = 120_000
 
 /** Timeout duration for Passkey assertion / WebAuthn options in milliseconds (2 minutes) */
 export const PASSKEY_TIMEOUT_MS = 120_000

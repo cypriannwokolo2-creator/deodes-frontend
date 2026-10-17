@@ -5,18 +5,38 @@ import { get } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query-keys"
 import type { ApiResponse, MoiScore } from "@/types"
 
-// GET /users/:id/reputation is specified in BUILD-PLAN.md, but a working
-// backend implementation is not confirmed in this codebase as of this PR.
-export function useReputation(userId: string) {
+interface TierResponse {
+  score?: number
+  breakdown?: { streaks?: number; completions?: number; volume?: number; recency?: number }
+}
+
+// GET /users/:id/reputation never existed. The backend serves reputation by
+// wallet address at /reputation/tier/:address — this hook resolves that shape
+// into MoiScore. History has no backend yet, so it comes back empty (the
+// component renders its empty state) rather than faked.
+export function useReputation(address: string) {
   return useQuery({
-    queryKey: queryKeys.reputation.detail(userId),
+    queryKey: queryKeys.reputation.detail(address),
     queryFn: async () => {
-      const response = await get<ApiResponse<{ reputation: MoiScore }>>(
-        `/users/${userId}/reputation`,
+      const response = await get<ApiResponse<TierResponse>>(
+        `/reputation/tier/${encodeURIComponent(address)}`,
       )
-      return response.data?.reputation ?? null
+      const data = response.data ?? (response as unknown as TierResponse)
+      if (typeof data?.score !== "number") return null
+      const b = data.breakdown ?? {}
+      const reputation: MoiScore = {
+        score: data.score,
+        breakdown: {
+          streaks: b.streaks ?? 0,
+          completions: b.completions ?? 0,
+          volume: b.volume ?? 0,
+          recency: b.recency ?? 0,
+        },
+        history: [],
+      }
+      return reputation
     },
-    enabled: !!userId,
+    enabled: !!address,
     // Keep reputation data fresh for 60 seconds after it's fetched.
     // Without a staleTime the query is treated as immediately stale, which
     // causes a background refetch on every mount — including after a page

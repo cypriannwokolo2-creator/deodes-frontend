@@ -8,7 +8,6 @@
  *
  * Packages covered:
  *   @noble/*        — ed25519 signing & HKDF key derivation (passkey adapter)
- *   @walletconnect/*— WalletConnect v2 QR-based mobile wallet
  */
 
 declare module "@noble/hashes/hkdf.js" {
@@ -80,21 +79,6 @@ declare module "@ledgerhq/hw-app-str" {
   }
 
   export default Str
-}
-
-declare module "@walletconnect/sign-client" {
-  export class SignClient {
-    static init(opts: Record<string, unknown>): Promise<SignClient>
-    on(event: string, handler: (...args: unknown[]) => void): void
-    connect(opts: Record<string, unknown>): Promise<{
-      uri?: string
-      approval(): Promise<unknown>
-    }>
-    disconnect(opts: Record<string, unknown>): Promise<void>
-    session: {
-      namespaces: Record<string, { accounts: string[] }>
-    }
-  }
 }
 
 

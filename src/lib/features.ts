@@ -27,7 +27,3 @@ export function isPasskeyEnabled(): boolean {
 export function isHardwareWalletEnabled(): boolean {
   return isFeatureEnabled("NEXT_PUBLIC_FEATURE_HARDWARE_WALLET")
 }
-
-export function isWalletConnectEnabled(): boolean {
-  return isFeatureEnabled("NEXT_PUBLIC_FEATURE_WALLETCONNECT")
-}

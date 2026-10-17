@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react"
 import { CircleAlert, CircleCheck, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { formatAddress, formatCurrency, isArcAddress, isArcTxnHash } from "@/lib/formatters"
+import { formatAddress, formatCurrency, formatFeePercent, isArcAddress, isArcTxnHash } from "@/lib/formatters"
 import { getErrorMessage } from "@/lib/api-client"
 import { useCirclePayouts, usePayoutPreview, useTriggerPayout } from "@/hooks/use-payouts"
 import type { Circle, CircleMember, PayoutPreview } from "@/types"
+import { displayNameOf } from "@/lib/profile/names"
 
 interface CirclePayoutTriggerProps {
   circle: Circle
@@ -166,7 +167,7 @@ export function CirclePayoutTrigger({ circle, members, isOrganizer }: CirclePayo
               <option value="">Select member…</option>
               {recipientOptions.map((m) => (
                 <option key={m.userId} value={m.userId}>
-                  {m.userName ?? formatAddress(m.userId)}
+                  {displayNameOf(m) ?? "Circle member"}
                   {m.userAddress && isArcAddress(m.userAddress) ? ` · ${formatAddress(m.userAddress)}` : " · no Arc wallet"}
                 </option>
               ))}
@@ -175,7 +176,7 @@ export function CirclePayoutTrigger({ circle, members, isOrganizer }: CirclePayo
                   .filter((m) => rotationPaidIds.has(m.userId))
                   .map((m) => (
                     <option key={m.userId} value={m.userId} disabled>
-                      {m.userName ?? formatAddress(m.userId)} · already paid
+                      {displayNameOf(m) ?? "Circle member"} · already paid
                     </option>
                   ))}
             </select>
@@ -195,7 +196,7 @@ export function CirclePayoutTrigger({ circle, members, isOrganizer }: CirclePayo
             </div>
             <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 font-body text-sm sm:grid-cols-4">
               <div><dt className="text-2xs uppercase tracking-widest text-muted-foreground">Gross</dt><dd className="font-mono font-semibold text-foreground">{formatCurrency(preview.totalGrossAmount, preview.currency)}</dd></div>
-              <div><dt className="text-2xs uppercase tracking-widest text-muted-foreground">Fee (0.5%)</dt><dd className="font-mono font-semibold text-foreground">{formatCurrency(preview.protocolFee, preview.currency)}</dd></div>
+              <div><dt className="text-2xs uppercase tracking-widest text-muted-foreground">Fee ({formatFeePercent()})</dt><dd className="font-mono font-semibold text-foreground">{formatCurrency(preview.protocolFee, preview.currency)}</dd></div>
               <div><dt className="text-2xs uppercase tracking-widest text-muted-foreground">Net</dt><dd className="font-mono font-semibold text-emerald-400">{formatCurrency(preview.totalNetAmount, preview.currency)}</dd></div>
               <div><dt className="text-2xs uppercase tracking-widest text-muted-foreground">Arc fee est.</dt><dd className="font-mono font-semibold text-foreground">{formatCurrency(preview.arcFeeEstimate, "USDC")}</dd></div>
             </dl>

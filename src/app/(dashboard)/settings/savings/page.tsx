@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, PiggyBank, Target, Calendar, TrendingUp, Check, ExternalLink } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
-import { get } from "@/lib/api-client"
+import { get, patch } from "@/lib/api-client"
+import { logger } from "@/lib/logger"
+import { useAuth } from "@/hooks/use-auth"
 import { useTranslate } from "@/lib/locale/context"
 import { ButtonLink } from "@/components/ui/button"
 
@@ -37,22 +39,9 @@ const MILESTONE_OPTIONS = [25, 50, 75, 100]
 
 export default function SavingsSettingsPage() {
   const { t } = useTranslate()
+  const { user } = useAuth()
   const [saved, setSaved] = useState(false)
-
-  const { data: settings } = useQuery<SavingsSettings>({
-    queryKey: ["savings-settings"],
-    queryFn: async () => {
-      const res = await get<SavingsSettings>("/savings/settings")
-      return res
-    },
-    placeholderData: {
-      autoReserve: false,
-      defaultTargetAmount: 100,
-      defaultFrequency: "monthly",
-      notifyOnMilestone: true,
-      milestoneThreshold: 50,
-    },
-  })
+  const [saving, setSaving] = useState(false)
 
   const { data: summary } = useQuery<SavingsSummary>({
     queryKey: ["savings-summary"],
@@ -70,7 +59,7 @@ export default function SavingsSettingsPage() {
     },
   })
 
-  const [localSettings, setLocalSettings] = useState<SavingsSettings>(settings ?? {
+  const [localSettings, setLocalSettings] = useState<SavingsSettings>({
     autoReserve: false,
     defaultTargetAmount: 100,
     defaultFrequency: "monthly",
@@ -78,9 +67,36 @@ export default function SavingsSettingsPage() {
     milestoneThreshold: 50,
   })
 
+  // Preferences live on the user record (PATCH /users/me) — seed the form
+  // from the profile once it loads.
+  useEffect(() => {
+    if (!user) return
+    setLocalSettings({
+      autoReserve: user.savingsAutoReserve ?? false,
+      defaultTargetAmount: user.savingsDefaultTarget ?? 100,
+      defaultFrequency: (user.savingsDefaultFrequency as SavingsSettings["defaultFrequency"]) ?? "monthly",
+      notifyOnMilestone: user.savingsNotifyOnMilestone ?? true,
+      milestoneThreshold: user.savingsMilestoneThreshold ?? 50,
+    })
+  }, [user])
+
   const handleSave = async () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setSaving(true)
+    try {
+      await patch("/users/me", {
+        savingsAutoReserve: localSettings.autoReserve,
+        savingsDefaultTarget: Number(localSettings.defaultTargetAmount) || 0,
+        savingsDefaultFrequency: localSettings.defaultFrequency,
+        savingsNotifyOnMilestone: localSettings.notifyOnMilestone,
+        savingsMilestoneThreshold: localSettings.milestoneThreshold,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      logger.error("[savings] Failed to save preferences:", e)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -179,7 +195,7 @@ export default function SavingsSettingsPage() {
               onChange={(e) => setLocalSettings((s) => ({ ...s, defaultTargetAmount: Number(e.target.value) }))}
               className="w-32 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-foreground focus:border-foreground focus:outline-none transition-colors"
             />
-            <span className="text-sm text-muted-foreground">USD</span>
+            <span className="text-sm text-muted-foreground">USDC</span>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Applied as the default when creating new savings goals</p>
         </section>
@@ -277,9 +293,10 @@ export default function SavingsSettingsPage() {
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-full bg-gradient-to-r from-aurora-violet to-aurora-cyan px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+            disabled={saving}
+            className="rounded-full bg-gradient-to-r from-aurora-violet to-aurora-cyan px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            Save Preferences
+            {saving ? "Saving…" : "Save Preferences"}
           </button>
         </div>
       </div>

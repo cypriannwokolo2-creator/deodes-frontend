@@ -16,6 +16,9 @@ export const TYPE_GROUPS: Record<string, string> = {
   circle: "Circles",
   circle_joined: "Circles",
   circle_completed: "Circles",
+  transfer_confirmed: "Transfers",
+  transfer_failed: "Transfers",
+  transfer_received: "Transfers",
   system: "System",
   warning: "Alerts",
   penalty: "Alerts",
@@ -26,6 +29,7 @@ export const TYPE_FILTERS = [
   { value: "contribution", label: "Contributions" },
   { value: "payout", label: "Payouts" },
   { value: "circle", label: "Circles" },
+  { value: "transfer", label: "Transfers" },
   { value: "system", label: "System" },
   { value: "warning", label: "Alerts" },
 ] as const;

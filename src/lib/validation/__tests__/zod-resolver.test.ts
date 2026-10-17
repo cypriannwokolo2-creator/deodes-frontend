@@ -47,6 +47,7 @@ describe("zodResolver", () => {
     const result = await ticket(
       {
         name: "Jane Doe",
+        email: "jane@example.com",
         subject: "Hello there",
         category: "Payments",
         message: "This is a sufficiently detailed message over twenty characters.",

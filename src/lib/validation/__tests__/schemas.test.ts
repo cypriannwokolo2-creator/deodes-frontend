@@ -93,6 +93,7 @@ describe("ticketSchema", () => {
   it("accepts a valid ticket", () => {
     const result = ticketSchema.safeParse({
       name: "Jane Doe",
+      email: "jane@example.com",
       subject: "Withdrawal stuck",
       category: "Payments & Withdrawals",
       message: "My withdrawal has been stuck in processing for three days now.",
@@ -104,6 +105,7 @@ describe("ticketSchema", () => {
   it("defaults priority to medium when omitted", () => {
     const result = ticketSchema.safeParse({
       name: "Jane Doe",
+      email: "jane@example.com",
       subject: "Withdrawal stuck",
       category: "Payments & Withdrawals",
       message: "My withdrawal has been stuck in processing for three days now.",
@@ -115,6 +117,7 @@ describe("ticketSchema", () => {
   it("rejects a too-short message", () => {
     const result = ticketSchema.safeParse({
       name: "Jane Doe",
+      email: "jane@example.com",
       subject: "Withdrawal stuck",
       category: "Payments & Withdrawals",
       message: "Too short",
@@ -133,6 +136,7 @@ describe("contributorSchema", () => {
   it("accepts a valid contribution", () => {
     const result = contributorSchema.safeParse({
       name: "Jane Doe",
+      email: "jane@example.com",
       github: "https://github.com/janedoe",
       contribution: "Frontend Development (TypeScript/Next.js)",
       bio: "I love building interfaces.",
@@ -143,6 +147,7 @@ describe("contributorSchema", () => {
   it("accepts a blank bio", () => {
     const result = contributorSchema.safeParse({
       name: "Jane Doe",
+      email: "jane@example.com",
       github: "https://github.com/janedoe",
       contribution: "Design & UI/UX",
     })
@@ -164,6 +169,7 @@ describe("contributorSchema", () => {
   it("rejects a missing contribution area", () => {
     const result = contributorSchema.safeParse({
       name: "Jane Doe",
+      email: "jane@example.com",
       github: "https://github.com/janedoe",
       contribution: "",
     })

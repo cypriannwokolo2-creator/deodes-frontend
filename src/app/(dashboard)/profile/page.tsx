@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/shared/page-header"
 import { cn } from "@/lib/cn"
 import { formatAddress, formatDate } from "@/lib/formatters"
 import { AvatarUploader } from "./components/AvatarUploader"
+import { displayNameOf, avatarInitialOf } from "@/lib/profile/names"
 
 const container = {
   hidden: { opacity: 0 },
@@ -134,9 +135,7 @@ export default function ProfilePage() {
     )
   }
 
-  const avatarInitial = user.displayName?.charAt(0)?.toUpperCase()
-    ?? user.walletAddress?.slice(0, 2)?.toUpperCase()
-    ?? "U"
+  const avatarInitial = avatarInitialOf(user)
 
   return (
     <div className="space-y-6">
@@ -177,14 +176,14 @@ export default function ProfilePage() {
                 <p className="mb-1.5 block text-xs font-heading tracking-wider uppercase text-muted-foreground">
                   Display Name
                 </p>
-                <p className="font-heading text-xl font-semibold text-foreground text-center">{user.displayName || "Anonymous"}</p>
+                <p className="font-heading text-xl font-semibold text-foreground text-center">{displayNameOf(user) ?? "Anonymous"}</p>
                 <p className="text-2xs text-muted-foreground text-center mt-1">Your unique anonymous name. Cannot be changed.</p>
               </div>
             </div>
           ) : (
             <>
               <h1 className="font-heading text-3xl font-bold gradient-text-extended text-center">
-                {user.displayName ?? "Unnamed User"}
+                {displayNameOf(user) ?? "Unnamed User"}
               </h1>
 
               <div className="flex items-center gap-3 flex-wrap justify-center">
@@ -212,7 +211,7 @@ export default function ProfilePage() {
           {[
             { label: "Circles Joined", value: "0", icon: CircleDot },
             { label: "Circles Completed", value: "0", icon: Trophy },
-            { label: "Total Contributed", value: "$0", icon: CircleArrowUp },
+            { label: "Total Contributed", value: "0 USDC", icon: CircleArrowUp },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -254,7 +253,7 @@ export default function ProfilePage() {
             {(savingsSummary as Record<string, unknown>).totalSaved as number > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Total saved</span>
-                <span className="font-heading font-semibold text-foreground">${((savingsSummary as Record<string, unknown>).totalSaved as number).toFixed(2)}</span>
+                <span className="font-heading font-semibold text-foreground">{((savingsSummary as Record<string, unknown>).totalSaved as number).toFixed(2)} USDC</span>
               </div>
             )}
           </motion.div>

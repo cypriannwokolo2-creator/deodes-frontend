@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { ticketSchema, zodResolver, type TicketInput } from "@/lib/validation"
 import { Button } from "@/components/ui/button"
-import { getCsrfHeaders } from "@/lib/auth/csrf"
+import { getErrorMessage, post } from "@/lib/api-client"
 
 const categories = [
   "Account & Wallet",
@@ -29,7 +29,7 @@ export function TicketForm() {
   } = useForm<TicketInput>({
     resolver: zodResolver(ticketSchema),
     mode: "onTouched",
-    defaultValues: { name: "", subject: "", category: "", message: "", priority: "medium" },
+    defaultValues: { name: "", email: "", subject: "", category: "", message: "", priority: "medium" },
   })
   const [formState, setFormState] = useState<FormState>("idle")
   const [formError, setFormError] = useState<string | null>(null)
@@ -40,20 +40,17 @@ export function TicketForm() {
     setFormError(null)
 
     try {
-      const res = await fetch("/api/support/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
-        body: JSON.stringify(values),
+      // Tickets persist to the backend inbox (GET /admin/support-tickets)
+      // and are linked to the reporter's account when signed in.
+      await post("/support", {
+        email: values.email,
+        message: `[${values.category} / ${values.priority}] ${values.subject} — from ${values.name}: ${values.message}`,
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to submit ticket")
-      }
       setFormState("success")
-      reset({ name: "", subject: "", category: "", message: "", priority: "medium" })
+      reset({ name: "", email: "", subject: "", category: "", message: "", priority: "medium" })
     } catch (err) {
       setFormState("error")
-      setFormError(err instanceof Error ? err.message : "Something went wrong")
+      setFormError(getErrorMessage(err))
     }
   }
 
@@ -117,6 +114,16 @@ export function TicketForm() {
               className={inputClass(Boolean(errors.name))}
             />
             {errorText(errors.name?.message)}
+          </div>
+          <div>
+            <input
+              type="email"
+              placeholder="Email (so we can reply)"
+              aria-label="Email"
+              {...register("email")}
+              className={inputClass(Boolean(errors.email))}
+            />
+            {errorText(errors.email?.message)}
           </div>
           <div>
             <input

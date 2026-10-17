@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import {
   CircleCheckBig,
@@ -14,6 +14,7 @@ import {
 import { ButtonLink } from "@/components/ui/button"
 import { copyToClipboard } from "@/lib/clipboard"
 import { getArcExplorerTxUrl } from "@/lib/explorer"
+import { post } from "@/lib/api-client"
 import { ARC_NETWORK } from "@/lib/constants"
 import { formatAddress } from "@/lib/formatters"
 import { cn } from "@/lib/cn"
@@ -71,10 +72,25 @@ export function TransferConfirmation({
   recipient,
   networkFee,
 }: TransferConfirmationProps) {
-  const { status, attempts } = useTransferPoll(txnHash)
+  const { status, attempts, feeUsdc } = useTransferPoll(txnHash)
   const meta = STATUS_META[status]
   const explorerUrl = getArcExplorerTxUrl(txnHash)
   const [copied, setCopied] = useState(false)
+  const reportedRef = useRef<string | null>(null)
+
+  // Report the settled outcome once so the backend can fan out in-app
+  // notifications (sender confirmation/failure, recipient received). The
+  // server dedupes per tx hash; the ref guards remounts. Best-effort: a
+  // failed report must never break the receipt UI.
+  useEffect(() => {
+    if (
+      (status === "finalized" || status === "failed") &&
+      reportedRef.current !== txnHash
+    ) {
+      reportedRef.current = txnHash
+      post(`/wallets/transfers/${txnHash}/outcome`, { status }).catch(() => {})
+    }
+  }, [status, txnHash])
 
   const handleCopy = async () => {
     const ok = await copyToClipboard(txnHash)
@@ -173,7 +189,7 @@ export function TransferConfirmation({
         <div className="flex items-center justify-between px-8 py-4">
           <span className="text-sm text-muted-foreground">Network Fee</span>
           <span className="text-sm text-foreground">
-            {networkFee} {currency}
+            {feeUsdc !== null ? feeUsdc.toFixed(4) : networkFee} {currency}
           </span>
         </div>
 

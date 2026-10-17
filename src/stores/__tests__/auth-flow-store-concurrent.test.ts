@@ -25,16 +25,11 @@ vi.mock("@/lib/monitoring", () => ({
 const mockSignMessage = vi.fn()
 const mockSetTokens = vi.fn()
 
-vi.mock("@/stores/multi-wallet-store", () => ({
-  useMultiWalletStore: {
-    getState: () => ({
-      wallets: {
-        "arc-evm": {
-          adapter: { signMessage: mockSignMessage },
-        },
-      },
-    }),
-  },
+vi.mock("@/lib/wallet/registry", () => ({
+  getWalletRegistry: () => ({
+    getAdapter: (id: string) =>
+      id === "arc-evm" ? { signMessage: mockSignMessage } : undefined,
+  }),
 }))
 
 vi.mock("@/stores/auth-store", () => ({

@@ -22,6 +22,7 @@ import { LocaleProvider } from "@/lib/locale/context"
 import { getServerDictionary } from "@/lib/locale/server-dictionaries"
 import { LOCALE_BOOTSTRAP_SCRIPT, dirForLocale, resolveLocale } from "@/lib/locale/locale-cookie"
 import { HmacProvider } from "@/providers/HmacProvider"
+import { CookieConsent } from "@/components/shared/cookie-consent"
 import { ScrollManager } from "@/components/shared/scroll-manager"
 import { PwaRegister } from "@/components/pwa-register"
 import {
@@ -230,6 +231,7 @@ export default function RootLayout({
                     <MonitoringProvider>
                       <HmacProvider>
                         {children}
+                        <CookieConsent />
                       </HmacProvider>
                     </MonitoringProvider>
                   </ToastProvider>

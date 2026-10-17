@@ -22,10 +22,8 @@ import {
 import { useSubscribe } from "@/hooks/use-subscriptions";
 import { useCirclePayouts } from "@/hooks/use-payouts";
 import { useAuth } from "@/hooks/use-auth";
-import { useMultiWallet } from "@/hooks/use-multi-wallet";
 import { useUIStore } from "@/stores/ui-store";
 import {
-  buildContributionIntentMessage,
   validateArcTxHash,
   validateContributeInput,
 } from "@/lib/contributions/validation";
@@ -99,7 +97,6 @@ export default function CircleDetailPage() {
   const [showContributeModal, setShowContributeModal] = useState(false);
   const [contributeTxnHash, setContributeTxnHash] = useState("");
   const [contributeError, setContributeError] = useState<string | null>(null);
-  const { address: walletAddress, signMessage } = useMultiWallet();
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   // Auto-circle consent: explicit opt-in checkbox, unchecked by default.
@@ -232,7 +229,6 @@ export default function CircleDetailPage() {
     const preflight = validateContributeInput({
       amount: circle.contributionAmount,
       currency: circle.currency,
-      walletAddress: walletAddress ?? "",
       roundNumber: circle.currentRound || 1,
       expectedAmount: circle.contributionAmount,
       isPremium: circle.circleType === "premium",
@@ -244,20 +240,6 @@ export default function CircleDetailPage() {
     const hashError = validateArcTxHash(contributeTxnHash.trim());
     if (hashError) {
       setContributeError(`${hashError} Pay USDC on Arc first, then paste the transaction hash.`);
-      return;
-    }
-    try {
-      await signMessage(
-        buildContributionIntentMessage({
-          amount: circle.contributionAmount,
-          circleName: circle.name,
-          circleId,
-          roundNumber: circle.currentRound || 1,
-          walletAddress: walletAddress as string,
-        }),
-      );
-    } catch (err: unknown) {
-      setContributeError(err instanceof Error ? err.message : "Signature rejected.");
       return;
     }
     contribute.mutate(

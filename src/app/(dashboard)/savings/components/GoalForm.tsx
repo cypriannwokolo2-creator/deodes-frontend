@@ -58,6 +58,8 @@ export function GoalForm({
   const [deadline, setDeadline] = useState(initial?.targetDate ?? "")
   const [description, setDescription] = useState(initial?.description ?? "")
   const [autoReserve, setAutoReserve] = useState(initial?.autoReserve ?? false)
+  const [autoAmount, setAutoAmount] = useState(initial?.autoAmount ? String(initial.autoAmount) : "")
+  const [autoFrequency, setAutoFrequency] = useState(initial?.autoFrequency ?? "monthly")
   const [touched, setTouched] = useState({ name: false, target: false, deadline: false, description: false })
   const touch = (field: keyof typeof touched) =>
     setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }))
@@ -106,6 +108,12 @@ export function GoalForm({
     const next = validateGoalFormFields({ name, target, deadline, description })
     if (Object.keys(next).length > 0) return
     const amount = Number(target)
+    const schedule = autoReserve
+      ? {
+          autoAmount: Math.max(0, Number(autoAmount) || 0),
+          autoFrequency,
+        }
+      : { autoAmount: 0, autoFrequency: "monthly" }
     if (initial) {
       onUpdate?.(initial.id, {
         name: name.trim(),
@@ -113,6 +121,7 @@ export function GoalForm({
         targetAmount: amount,
         targetDate: deadline.trim() ? deadline.trim() : null,
         autoReserve,
+        ...schedule,
       })
     } else {
       onCreate?.({
@@ -121,6 +130,7 @@ export function GoalForm({
         targetAmount: amount,
         targetDate: deadline.trim() || null,
         autoReserve,
+        ...schedule,
       })
     }
   }
@@ -186,7 +196,7 @@ export function GoalForm({
         <span>
           <span className="block font-heading text-sm text-foreground">Auto-reserve</span>
           <span className="block text-xs text-muted-foreground">
-            Flag this vault for automatic top-ups from circle payouts.
+            Automatically set aside a fixed amount on schedule while your balance covers it.
           </span>
         </span>
         <button
@@ -202,6 +212,36 @@ export function GoalForm({
           />
         </button>
       </label>
+      {autoReserve && (
+        <div className="flex flex-wrap items-end gap-3 pl-1">
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted-foreground">Amount (USDC)</span>
+            <input
+              aria-label="Auto-save amount in USDC"
+              type="number"
+              min={0}
+              step="any"
+              value={autoAmount}
+              onChange={(e) => setAutoAmount(e.target.value)}
+              placeholder="25"
+              className="w-28 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-foreground focus:border-foreground focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-muted-foreground">Every</span>
+            <select
+              aria-label="Auto-save frequency"
+              value={autoFrequency}
+              onChange={(e) => setAutoFrequency(e.target.value)}
+              className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-foreground focus:border-foreground focus:outline-none"
+            >
+              {["daily", "weekly", "biweekly", "monthly"].map((f) => (
+                <option key={f} value={f} className="bg-card">{f}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
       {(serverError || unmappedServerMessages.length > 0) && (
         <div
           role="alert"

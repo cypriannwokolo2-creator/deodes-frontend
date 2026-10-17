@@ -9,6 +9,7 @@
  */
 
 import type { Circle, CircleMember, CircleRound, Contribution, Payout } from "@/types"
+import { displayNameOf } from "@/lib/profile/names"
 
 /** Counts as settled money: on time or late but still collected. */
 const SETTLED_STATUSES = new Set<Contribution["status"]>(["confirmed", "late"])
@@ -69,7 +70,7 @@ export interface CircleSummary {
 }
 
 function memberLabel(member: CircleMember): string {
-  return member.userName?.trim() || "Anonymous"
+  return displayNameOf(member) ?? "Circle member"
 }
 
 function nameForUserId(

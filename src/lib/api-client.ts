@@ -206,9 +206,32 @@ apiClient.interceptors.response.use(
   }
 )
 
+export function getRetryAfterSeconds(error: unknown): number | null {
+  if (error instanceof AxiosError) {
+    const data = error.response?.data as any
+    const fromBody = Number(data?.retryAfter ?? data?.data?.retryAfter)
+    if (Number.isFinite(fromBody) && fromBody > 0) return Math.ceil(fromBody)
+    const h = error.response?.headers as any
+    const raw = h?.["retry-after"] ?? h?.["Retry-After"]
+    const n = Number(raw)
+    if (Number.isFinite(n) && n > 0) return Math.ceil(n)
+  }
+  return null
+}
+
 export function getErrorMessage(error: unknown): string {
   if (error instanceof AxiosError) {
-    const data = error.response?.data
+    const data = error.response?.data as any
+    const retryAfter = getRetryAfterSeconds(error)
+    if (error.response?.status === 429) {
+      if (retryAfter && retryAfter > 0) {
+        const mins = Math.floor(retryAfter / 60)
+        const secs = retryAfter % 60
+        const wait = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+        return `Too many attempts. Try again in ${wait}.`
+      }
+      return "Too many requests. Please try again later."
+    }
     if (data?.error) return data.error
     if (data?.message) return data.message
     if (typeof data === "string") return data
@@ -226,8 +249,6 @@ export function getErrorMessage(error: unknown): string {
         return "A conflict occurred. The resource may already exist."
       case 422:
         return "Validation failed. Please check your inputs."
-      case 429:
-        return "Too many requests. Please try again later."
       case 500:
         return "Internal server error. Please try again later."
       default:

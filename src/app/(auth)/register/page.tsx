@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input"
 import { OTPInput } from "@/components/ui/otp-input"
 import { useAuthStore } from "@/stores/auth-store"
 import { useToast } from "@/hooks/use-toast"
-import { post } from "@/lib/api-client"
+import { useBackendConfig } from "@/hooks/use-backend-config"
+import { getErrorMessage, getRetryAfterSeconds, post } from "@/lib/api-client"
+import { navigatePostAuth } from "@/lib/app-host"
 
 interface RegisterEnvelope {
   success?: boolean
@@ -31,7 +33,10 @@ interface RegisterEnvelope {
 export default function RegisterPage() {
   const router = useRouter()
   const setTokens = useAuthStore((s) => s.setTokens)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isAuthLoading = useAuthStore((s) => s.isLoading)
   const toast = useToast()
+  const { emailConfigured } = useBackendConfig()
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<"credentials" | "code">("credentials")
   const [email, setEmail] = useState("")
@@ -51,6 +56,13 @@ export default function RegisterPage() {
 
   const passwordValue = watch("password") || ""
 
+  // Already signed in → the app host, not the register form again.
+  useEffect(() => {
+    if (isAuthenticated && !isAuthLoading) {
+      navigatePostAuth(router.replace.bind(router), "/")
+    }
+  }, [isAuthenticated, isAuthLoading, router])
+
   useEffect(() => {
     if (cooldown <= 0) return
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
@@ -61,14 +73,19 @@ export default function RegisterPage() {
     async (values: RegisterInput) => {
       setLoading(true)
       try {
+        // Canonical email form (backend normalizes identically): mailbox
+        // delivery is case-insensitive but OTP keys are not — one spelling
+        // for register, resend, and verify alike.
+        const email = values.email.trim().toLowerCase()
         const res = await post<RegisterEnvelope>("/auth/register", {
-          email: values.email,
+          email,
           password: values.password,
+          displayName: values.name.trim(),
         })
         if (res?.success === false) {
           throw new Error(res.error || res.message || "Registration failed")
         }
-        setEmail(values.email)
+        setEmail(email)
         setCode("")
         setCodeError("")
         setCooldown(60)
@@ -109,10 +126,24 @@ export default function RegisterPage() {
       } else {
         toast.success("Account created successfully!")
       }
-      router.replace("/wallet?fresh=1")
+      // Attribute a referral (?ref= from an invite link). Best-effort: a
+      // bad/used code must never block registration.
+      try {
+        const refCode =
+          typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("ref")
+            : null
+        if (refCode && refCode.trim()) {
+          await post("/referral/apply", { referralCode: refCode.trim() }).catch(() => null)
+        }
+      } catch {}
+      navigatePostAuth(router.replace.bind(router), "/wallet?fresh=1")
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Verification failed"
-      setCodeError(msg)
+      const retryAfter = getRetryAfterSeconds(err)
+      if (retryAfter && retryAfter > 0) {
+        setCooldown((c) => Math.max(c, Math.min(retryAfter, 900)))
+      }
+      setCodeError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -122,13 +153,19 @@ export default function RegisterPage() {
     if (cooldown > 0 || !email) return
     setLoading(true)
     try {
-      // Re-registering an unverified email re-sends the code.
+      // Re-registering an unverified email re-sends the code. Name travels
+      // again too so a resend never wipes the pending display name.
       const password = watch("password")
-      await post<RegisterEnvelope>("/auth/register", { email, password })
+      const name = (watch("name") ?? "").trim()
+      await post<RegisterEnvelope>("/auth/register", { email, password, displayName: name })
       setCooldown(60)
       toast.success("New code sent!")
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not resend code")
+      const retryAfter = getRetryAfterSeconds(err)
+      if (retryAfter && retryAfter > 0) {
+        setCooldown(Math.min(retryAfter, 900))
+      }
+      toast.error(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -142,6 +179,12 @@ export default function RegisterPage() {
             We sent a 6-digit code to <span className="text-foreground font-medium">{email}</span>.
             Enter it below to finish creating your account.
           </p>
+          {!emailConfigured && (
+            <p role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center text-xs text-amber-600 dark:text-amber-400">
+              Email delivery is currently down on our side — your code may not arrive.
+              Please try again later or contact support instead of guessing codes.
+            </p>
+          )}
           <OTPInput
             id="register-code"
             label="Verification code"

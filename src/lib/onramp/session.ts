@@ -2,6 +2,7 @@
 
 import { AppKit } from "@circle-fin/app-kit";
 import type { OnrampSession } from "@circle-fin/app-kit";
+import { getCsrfHeaders } from "@/lib/auth/csrf";
 import { circleWidgetBaseUrlPublicOverride } from "@/lib/onramp/env";
 
 export interface OnrampSessionBody {
@@ -24,13 +25,31 @@ export interface OnrampEnvProbe {
  * never leaves the server) and return it for the widget.
  *
  * Scoped to USDC on Arc by default — Deodes only handles that pair.
+ *
+ * Sends the double-submit CSRF header: our middleware 403s every
+ * mutating /api/* POST without `x-csrf-token` matching the CSRF cookie,
+ * and the SDK's fetch sends no custom headers on its own — without this
+ * the mint fails with HTTP 403 before the route handler ever runs.
+ * If the cookie is absent (fresh profile, cleared cookies), one
+ * same-origin GET primes it first — the middleware attaches the CSRF
+ * cookie to every response that lacks one.
  */
 export async function fetchOnrampSession(
   body: OnrampSessionBody,
 ): Promise<OnrampSession> {
   const kit = new AppKit();
+  let headers = getCsrfHeaders();
+  if (!headers["x-csrf-token"]) {
+    try {
+      await fetch("/api/onramp/sessions", { method: "GET", cache: "no-store" });
+    } catch {
+      // Best-effort: the mint below surfaces the real error.
+    }
+    headers = getCsrfHeaders();
+  }
   return kit.onramp.fetchSession({
     url: "/api/onramp/sessions",
+    headers,
     body: {
       appUserId: body.appUserId,
       destinationAddress: body.destinationAddress,

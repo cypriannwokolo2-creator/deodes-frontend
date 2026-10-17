@@ -23,6 +23,12 @@ vi.mock("@/stores/ui-store", () => ({
     selector({ addToast: vi.fn() }),
 }))
 
+// Signed-in visitor: join attempts go straight to the backend instead of
+// detouring through register (that path is covered by auth-flow tests).
+vi.mock("@/stores/auth-store", () => ({
+  useAuthStore: { getState: () => ({ isAuthenticated: true }) },
+}))
+
 const HOUR = 3_600_000
 const inHours = (h: number) => new Date(Date.now() + h * HOUR).toISOString()
 

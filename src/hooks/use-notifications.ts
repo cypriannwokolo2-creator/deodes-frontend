@@ -41,7 +41,7 @@ async function fetchNotifications(): Promise<Notification[]> {
 }
 
 async function fetchArchivedNotifications(): Promise<Notification[]> {
-  const response = await get<unknown>("/notifications/archive?limit=100");
+  const response = await get<unknown>("/notifications/search?archived=true&limit=100");
   return extractNotifications(response);
 }
 
@@ -209,7 +209,7 @@ export function useNotifications() {
         ]);
       }
       try {
-        await post(`/notifications/${id}/archive`, {});
+        await post(`/notifications/bulk-archive`, { ids: [id] });
         return true;
       } catch (error) {
         restoreNotificationQuery(queryClient, queryKeys.notifications.all, previousActive);
@@ -239,7 +239,7 @@ export function useNotifications() {
         ]);
       }
       try {
-        await post(`/notifications/${id}/unarchive`, {});
+        await post(`/notifications/bulk-unarchive`, { ids: [id] });
         return true;
       } catch (error) {
         restoreNotificationQuery(queryClient, queryKeys.notifications.all, previousActive);

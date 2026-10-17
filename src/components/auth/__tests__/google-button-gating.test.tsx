@@ -28,7 +28,7 @@ afterEach(() => {
 describe("fetchBackendConfig", () => {
   it("reports disabled on explicit false", async () => {
     mockConfigOnce({ data: { google_enabled: false } })
-    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: false })
+    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: false, emailConfigured: true })
     expect(globalThis.fetch).toHaveBeenCalledOnce()
     expect(String(vi.mocked(globalThis.fetch).mock.calls[0][0])).toContain(
       CONFIG_URL_SUFFIX
@@ -37,22 +37,27 @@ describe("fetchBackendConfig", () => {
 
   it("reports enabled on explicit true", async () => {
     mockConfigOnce({ data: { google_enabled: true } })
-    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true })
+    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true, emailConfigured: true })
   })
 
   it("fail-open on HTTP error", async () => {
     mockConfigOnce({ error: "down" }, false)
-    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true })
+    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true, emailConfigured: true })
   })
 
   it("fail-open on network failure", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("down"))
-    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true })
+    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true, emailConfigured: true })
   })
 
   it("fail-open on missing flag", async () => {
     mockConfigOnce({ data: {} })
-    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true })
+    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true, emailConfigured: true })
+  })
+
+  it("warns on explicit email unconfigured", async () => {
+    mockConfigOnce({ data: { email: { configured: false } } })
+    await expect(fetchBackendConfig()).resolves.toEqual({ googleEnabled: true, emailConfigured: false })
   })
 
   it("fetches once for many callers (module cache)", async () => {

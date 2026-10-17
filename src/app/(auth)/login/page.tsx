@@ -1,12 +1,14 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { loginSchema, zodResolver, type LoginInput } from "@/lib/validation"
 import { useAuthStore } from "@/stores/auth-store"
 import { useToast } from "@/hooks/use-toast"
+import { getErrorMessage } from "@/lib/api-client"
+import { navigatePostAuth } from "@/lib/app-host"
 import { post } from "@/lib/api-client"
 import type { User } from "@/types"
 import { AuthLayout } from "@/components/auth/auth-layout"
@@ -33,8 +35,17 @@ interface LoginEnvelope {
 export default function LoginPage() {
   const router = useRouter()
   const setTokens = useAuthStore((s) => s.setTokens)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isLoading = useAuthStore((s) => s.isLoading)
   const toast = useToast()
   const [loading, setLoading] = useState(false)
+
+  // Already signed in → the app host, not the login form again.
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigatePostAuth(router.replace.bind(router), "/")
+    }
+  }, [isAuthenticated, isLoading, router])
 
   const {
     register,
@@ -57,16 +68,16 @@ export default function LoginPage() {
         }
         if (token) {
           // setTokens persists the HttpOnly session cookie the middleware gates
-          // on, so navigation must wait for it to resolve.
+          // on, so navigation must wait for it to resolve. Apex logins land
+          // on the app host (dashboard lives there only).
           await setTokens(token, data?.refreshToken ?? token, data?.user, data?.csrfToken)
           toast.success("Welcome back!")
-          router.replace("/")
+          navigatePostAuth(router.replace.bind(router), "/")
         } else {
           throw new Error("Invalid login response")
         }
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Login failed"
-        toast.error(msg)
+        toast.error(getErrorMessage(err))
       } finally {
         setLoading(false)
       }

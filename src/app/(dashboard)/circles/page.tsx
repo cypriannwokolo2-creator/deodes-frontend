@@ -44,6 +44,7 @@ export default function CirclesBrowsePage() {
   const [openOnly, setOpenOnly] = useState(true)
   const [sortValue, setSortValue] = useState("date-desc")
   const [page, setPage] = useState(1)
+  // 3-col grid × 4 rows by design (backend honors any limit ≤ 100).
   const limit = 12
 
   const updateTypeFilter = (newType: string) => {

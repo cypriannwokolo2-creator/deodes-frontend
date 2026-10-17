@@ -1,15 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react"
-import { post, getErrorMessage } from "@/lib/api-client"
+import { patch, getErrorMessage } from "@/lib/api-client"
 import { useAuthStore } from "@/stores/auth-store"
 import { useUIStore } from "@/stores/ui-store"
 import { logger } from "@/lib/logger"
 import { resizeAvatar, validateAvatarFile } from "../utils/resize-image"
-
-interface AvatarUploadResponse {
-  avatarUrl?: string
-}
 
 export function useAvatarUpload() {
   const user = useAuthStore((s) => s.user)
@@ -60,13 +56,19 @@ export function useAvatarUpload() {
     if (!preview) return
     setUploading(true)
     try {
-      const ext = preview.blob.type.split("/")[1] ?? "webp"
-      const formData = new FormData()
-      formData.append("avatar", preview.blob, `avatar.${ext}`)
-      const res = await post<AvatarUploadResponse>("/users/me/avatar", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // No avatar file host exists: persist the resized image as a data URL
+      // on the profile (avatarIpfsHash, TEXT column). 256px webp stays small.
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error("Could not read image"))
+        reader.readAsDataURL(preview.blob)
       })
-      if (user && res?.avatarUrl) updateUser({ ...user, avatarIpfsHash: res.avatarUrl })
+      const res = await patch<{ user?: { avatarIpfsHash?: string } } & Record<string, unknown>>("/users/me", {
+        avatarIpfsHash: dataUrl,
+      })
+      const saved = (res as { user?: { avatarIpfsHash?: string } })?.user?.avatarIpfsHash ?? dataUrl
+      if (user) updateUser({ ...user, avatarIpfsHash: saved })
       addToast({ type: "success", title: "Avatar updated" })
       setPreview(null)
     } catch (err) {

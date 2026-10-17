@@ -10,6 +10,7 @@ const MoiScoreGauge = dynamic(() => import("@/components/reputation/moi-score-ga
 const ReputationBreakdown = dynamic(() => import("@/components/reputation/reputation-breakdown").then(m => m.ReputationBreakdown), { ssr: false })
 const ReputationHistory = dynamic(() => import("@/components/reputation/reputation-history").then(m => m.ReputationHistory), { ssr: false })
 const TierCard = dynamic(() => import("@/components/reputation/tier-card").then(m => m.TierCard), { ssr: false })
+import { Leaderboard } from "@/components/reputation/leaderboard"
 import { useAuth } from "@/hooks/use-auth"
 import { useReputation } from "@/hooks/use-reputation"
 
@@ -28,7 +29,7 @@ function ReputationLoading() {
 
 export default function ReputationPage() {
   const { user, isLoading: authLoading } = useAuth()
-  const { data: reputation, isLoading, isError } = useReputation(user?.id ?? "")
+  const { data: reputation, isLoading, isError } = useReputation(user?.walletAddress ?? "")
 
   if (authLoading || (user && isLoading)) {
     return <ReputationLoading />
@@ -107,6 +108,8 @@ export default function ReputationPage() {
           <ReputationHistory history={reputation.history} />
         </div>
       </div>
+
+      <Leaderboard />
 
       <aside className="flex flex-col justify-between gap-4 bg-gradient-to-r from-aurora-violet/15 via-transparent to-emerald-400/10 px-5 py-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">

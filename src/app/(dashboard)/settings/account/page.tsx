@@ -10,7 +10,7 @@ import { Button, ButtonLink } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { patch, del } from "@/lib/api-client"
+import { patch, del, getErrorMessage } from "@/lib/api-client"
 
 const COUNTRIES = [
   { value: "AF", label: "Afghanistan" }, { value: "AL", label: "Albania" }, { value: "DZ", label: "Algeria" },
@@ -134,7 +134,8 @@ export default function AccountSettingsPage() {
   const { user, isLoading: authLoading } = useAuth()
   const { t, setLocale } = useTranslate()
 
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
+  const [usernameError, setUsernameError] = useState("")
   const [phone, setPhone] = useState("")
   const [country, setCountry] = useState("")
   const [language, setLanguage] = useState("en")
@@ -146,7 +147,7 @@ export default function AccountSettingsPage() {
 
   useEffect(() => {
     if (user) {
-      setEmail(user.email ?? "")
+      setUsername(user.username ?? "")
       setPhone(user.phone ?? "")
       setCountry(user.countryCode ?? "")
       setLanguage(user.preferredLanguage ?? "en")
@@ -155,9 +156,13 @@ export default function AccountSettingsPage() {
 
   const handleSave = useCallback(async () => {
     setSaving(true)
+    setUsernameError("")
     try {
+      // Email is deliberately excluded: the backend rejects it here and
+      // requires the verified email-change flow instead. Sending it (even
+      // unchanged) 400s the whole save.
       await patch("/users/me", {
-        email: email.trim() || undefined,
+        username: username.trim().toLowerCase() || undefined,
         phone: phone.trim() || undefined,
         countryCode: country || undefined,
         preferredLanguage: language || undefined,
@@ -165,11 +170,13 @@ export default function AccountSettingsPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
+      const msg = getErrorMessage(e)
+      if (/username/i.test(msg)) setUsernameError(msg)
       logger.error("[account] Failed to save account settings:", e)
     } finally {
       setSaving(false)
     }
-  }, [email, phone, country, language])
+  }, [username, phone, country, language])
 
   const handleDeleteAccount = useCallback(async () => {
     setDeleting(true)
@@ -223,13 +230,27 @@ export default function AccountSettingsPage() {
           <p className="text-2xs text-muted-foreground mt-1">{t("account.displayNameHint")}</p>
         </div>
 
+        <div>
+          <label className="mb-1.5 block text-xs font-heading tracking-wider uppercase text-muted-foreground">
+            {t("account.email")}
+          </label>
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-muted-foreground">
+            {t("account.emailManaged")}
+          </p>
+          <p className="text-2xs text-muted-foreground mt-1">{t("account.emailHint")}</p>
+        </div>
+
         <Input
-          label={t("account.email")}
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={t("account.emailPlaceholder")}
-          hint={t("account.emailHint")}
+          label={t("account.username")}
+          type="text"
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 30))
+            setUsernameError("")
+          }}
+          placeholder={t("account.usernamePlaceholder")}
+          hint={t("account.usernameHint")}
+          error={usernameError || undefined}
         />
 
         <Input

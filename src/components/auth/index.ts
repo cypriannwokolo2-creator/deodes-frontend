@@ -1,5 +1,4 @@
 export { AuthStepIndicator } from "./auth-step-indicator"
-export { AuthConnectionState } from "./auth-connection-state"
 export { AuthErrorBoundary } from "./auth-error-boundary"
 export { AuthLayout } from "./auth-layout"
 export { AuthInput } from "./auth-input"

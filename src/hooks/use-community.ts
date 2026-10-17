@@ -1,7 +1,8 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { del, get, patch, post } from "@/lib/api-client"
+import { del, get, patch, post, getErrorMessage } from "@/lib/api-client"
+import { useUIStore } from "@/stores/ui-store"
 
 export interface Community {
   id: string
@@ -84,10 +85,16 @@ export function useCommunity(id: string, enabled = true) {
   return query
 }
 
-export function useCommunityMembers(id: string, enabled = true) {
+export function useCommunityMembers(id: string, enabled = true, search?: string) {
+  const q = (search ?? "").trim()
   return useQuery({
-    queryKey: communityKeys.members(id),
-    queryFn: async () => unwrap<Member[]>(await get(`/communities/${id}/members`), "members", []),
+    queryKey: [...communityKeys.members(id), q],
+    queryFn: async () => {
+      const path = q
+        ? `/communities/${id}/members?search=${encodeURIComponent(q)}`
+        : `/communities/${id}/members`
+      return unwrap<Member[]>(await get(path), "members", [])
+    },
     enabled: enabled && !!id,
   })
 }
@@ -126,6 +133,9 @@ export function useCommunityMembership(id: string, enabled = true) {
 
 export function useCommunityMutation(id: string) {
   const queryClient = useQueryClient()
+  const addToast = useUIStore((s) => s.addToast)
+  const fail = (title: string) => (err: unknown) =>
+    addToast({ type: "error", title, description: getErrorMessage(err) })
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: communityKeys.detail(id) }),
@@ -139,28 +149,45 @@ export function useCommunityMutation(id: string) {
   const join = useMutation({
     mutationFn: () => post(`/communities/${id}/join`),
     onSuccess: invalidate,
+    onError: fail("Failed to join community"),
+  })
+  const leave = useMutation({
+    mutationFn: () => post(`/communities/${id}/leave`),
+    onSuccess: invalidate,
+    onError: fail("Failed to leave community"),
   })
   const togglePin = useMutation({
     mutationFn: ({ announcementId, pinned }: { announcementId: string; pinned: boolean }) =>
       patch(`/communities/${id}/announcements/${announcementId}/pin`, { pinned }),
     onSuccess: invalidate,
+    onError: fail("Failed to update pin"),
   })
   const deleteAnnouncement = useMutation({
     mutationFn: (announcementId: string) => del(`/communities/${id}/announcements/${announcementId}`),
     onSuccess: invalidate,
+    onError: fail("Failed to delete announcement"),
   })
   const removeMember = useMutation({
     mutationFn: (memberId: string) => del(`/communities/${id}/members/${memberId}`),
     onSuccess: invalidate,
+    onError: fail("Failed to remove member"),
   })
   const transferOwnership = useMutation({
     mutationFn: (newOwnerId: string) => post(`/communities/${id}/transfer-ownership`, { newOwnerId }),
     onSuccess: invalidate,
+    onError: fail("Failed to transfer ownership"),
   })
   const createAnnouncement = useMutation({
     mutationFn: (content: string) => post(`/communities/${id}/announcements`, { content }),
     onSuccess: invalidate,
+    onError: fail("Failed to post announcement"),
+  })
+  const likeAnnouncement = useMutation({
+    mutationFn: (announcementId: string) =>
+      post(`/communities/${id}/announcements/${announcementId}/like`, {}),
+    onSuccess: invalidate,
+    onError: fail("Failed to like announcement"),
   })
 
-  return { join, togglePin, deleteAnnouncement, removeMember, transferOwnership, createAnnouncement }
+  return { join, leave, togglePin, deleteAnnouncement, removeMember, transferOwnership, createAnnouncement, likeAnnouncement }
 }

@@ -22,8 +22,11 @@ import {
  * Fail-closed: 503 when CIRCLE_API_KEY is unset (onramp disabled).
  *
  * Auth: the caller must hold our HttpOnly access-token cookie AND request a
- * session for its own subject (body.appUserId === JWT sub). This stops one
- * user minting onramp sessions that pay out to someone else's address.
+ * session for its own subject (body.appUserId === JWT sub). The cookie value
+ * alone is self-asserted — anyone can curl a forged JWT — so the bearer is
+ * additionally verified against the backend (/v1/me validates the signature
+ * and session); the backend-reported user id must agree with both.
+ * This stops one user minting onramp sessions attributed to someone else.
  *
  * NOTE (webhooks): browser DEPOSIT_SETTLED events are best-effort UX only.
  * Reconcile final state from Circle webhooks once configured in Console —
@@ -53,18 +56,55 @@ function isArcAddress(value: unknown): value is string {
   return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value);
 }
 
+/**
+ * Confirms the presented bearer with the backend: GET /v1/me validates the
+ * JWT signature and session server-side and echoes the subject. Returns true
+ * only when the backend agrees the token belongs to `sub`.
+ */
+async function isBackendSession(token: string, sub: string): Promise<boolean> {
+  const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+  if (base === "") return false;
+  try {
+    const res = await fetch(`${base}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return false;
+    const json = (await res.json()) as {
+      data?: { user?: { id?: unknown } };
+    };
+    return json?.data?.user?.id === sub;
+  } catch {
+    return false;
+  }
+}
+
 /** Bare hostname for the widget's frame-ancestors allowlist (no scheme/port). */
 function referrerDomain(request: Request): string {
-  const configured = (process.env.ONRAMP_REFERRER_DOMAIN ?? "").trim();
-  if (configured !== "") return configured;
+  let host = "localhost";
   try {
     // Same-origin fallback: the embedding page lives on this host.
     // Set ONRAMP_REFERRER_DOMAIN explicitly in production (required for
     // debit card / Apple Pay / Google Pay — 403 otherwise).
-    return new URL(request.url).hostname;
+    host = new URL(request.url).hostname;
   } catch {
-    return "localhost";
+    // keep localhost fallback
   }
+  const configured = (process.env.ONRAMP_REFERRER_DOMAIN ?? "").trim();
+  if (configured === "") return host;
+  // A stale ONRAMP_REFERRER_DOMAIN (e.g. app.deodes.com while serving
+  // deodes.com) makes Circle reject card/Apple-Pay/Google-Pay with 403 and
+  // renders a blank widget. Prefer the actual embedding host when they
+  // disagree — the widget is always same-origin mounted.
+  if (configured !== host) {
+    logger.warn("onramp referrer domain mismatch, using request host", {
+      configured,
+      host,
+    });
+    return host;
+  }
+  return configured;
 }
 
 function unauthorized(): Response {
@@ -96,15 +136,17 @@ async function buildHandler(request: Request) {
       const match = cookie.match(
         new RegExp(`(?:^|;\\s*)${ACCESS_TOKEN_COOKIE}=([^;]+)`),
       );
-      const sub = match ? readJwtSub(decodeURIComponent(match[1])) : null;
-      if (sub === null) return false;
+      const raw = match ? decodeURIComponent(match[1]) : null;
+      const sub = raw ? readJwtSub(raw) : null;
+      if (sub === null || raw === null) return false;
       try {
         const body = (await req.clone().json()) as {
           appUserId?: unknown;
           destinationAddress?: unknown;
         };
         if (body.appUserId !== sub) return false;
-        return isArcAddress(body.destinationAddress);
+        if (!isArcAddress(body.destinationAddress)) return false;
+        return await isBackendSession(raw, sub);
       } catch {
         return false;
       }

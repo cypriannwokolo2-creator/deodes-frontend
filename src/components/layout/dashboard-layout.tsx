@@ -8,7 +8,6 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { MobileMenu } from "@/components/layout/mobile-menu";
-import { WalletSelectorDialog } from "@/components/wallet/wallet-selector-dialog";
 import dynamic from "next/dynamic";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { AutoBreadcrumbs } from "@/components/shared/auto-breadcrumbs";
@@ -73,7 +72,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
         <MobileNav />
-        <WalletSelectorDialog />
       </div>
       {/* `data-print-hide` is belt-and-braces: the print rules also target
           `nav`/`header`/`aside` by role and tag. Marking them explicitly

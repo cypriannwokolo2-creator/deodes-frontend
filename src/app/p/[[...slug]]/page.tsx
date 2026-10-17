@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import Link from "next/link";
+import Link from "next/link"
+import { safeSlug } from "@/lib/slug-guard";
 import type { Metadata } from "next";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { sanitizeHtml, escapeHtml } from "@/lib/security/html-sanitizer";
@@ -8,6 +9,8 @@ import { OG_IMAGE, TWITTER_SITE, absoluteUrl } from "@/lib/seo/site";
 import { renderMarkdownTable } from "@/lib/markdown-table";
 
 const PAGES_DIR = path.join(process.cwd(), "content/pages");
+
+
 const DOCS_DIR = path.join(process.cwd(), "content/docs");
 
 // ── Tiny Markdown Parser (zero dependencies) ──
@@ -130,11 +133,10 @@ export async function generateMetadata({
 }: {
   params: { slug?: string[] };
 }): Promise<Metadata> {
-  const slug =
-    params.slug && params.slug.length > 0 ? params.slug.join("/") : "index";
-  const filePath = path.join(PAGES_DIR, `${slug}.md`);
+  const slug = safeSlug(params.slug);
+  const filePath = slug === null ? "" : path.join(PAGES_DIR, `${slug}.md`);
 
-  if (!fs.existsSync(filePath)) {
+  if (slug === null || !fs.existsSync(filePath)) {
     return {
       title: "Page Not Found — Deodes",
       description: "That page does not exist on Deodes.",
@@ -321,8 +323,9 @@ export default function UploadedPage({
   }
 
   // /p/<slug> — render specific page
-  const filePath = path.join(PAGES_DIR, `${slug}.md`);
-  if (!fs.existsSync(filePath)) {
+  const pageSlug = safeSlug(params.slug);
+  const filePath = pageSlug === null ? "" : path.join(PAGES_DIR, `${pageSlug}.md`);
+  if (pageSlug === null || !fs.existsSync(filePath)) {
     return (
       <PublicLayout>
         <div className="auroral-mesh min-h-screen">

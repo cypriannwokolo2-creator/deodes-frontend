@@ -9,10 +9,6 @@ const TicketForm = dynamic(
   { ssr: false }
 )
 
-const TicketLookup = dynamic(
-  () => import("./ticket-lookup").then((m) => m.TicketLookup),
-  { ssr: false }
-)
 
 export const metadata: Metadata = buildRouteMetadata("/support")
 
@@ -117,23 +113,25 @@ export default function SupportPage() {
               <TicketForm />
             </div>
 
-            {/* Track ticket */}
-            <div className="rounded-2xl bg-card/60 backdrop-blur-xl border border-white/10 p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-aurora-cyan/15 text-aurora-cyan">
-                  <SearchIcon />
-                </span>
-                <div>
-                  <h2 className="font-heading text-lg font-semibold text-foreground">
-                    Track Your Ticket
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Enter your ticket ID to check status
-                  </p>
+              <div className="rounded-2xl bg-card/60 backdrop-blur-xl border border-white/10 p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-aurora-cyan/15 text-aurora-cyan">
+                    <SearchIcon />
+                  </span>
+                  <div>
+                    <h2 className="font-heading text-lg font-semibold text-foreground">
+                      What happens next
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Every ticket lands directly with the team
+                    </p>
+                  </div>
                 </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Include your account email in the form and we&apos;ll reply within 24 hours.
+                  For urgent wallet issues, mention your Arc address so we can look up the transaction.
+                </p>
               </div>
-              <TicketLookup />
-            </div>
           </div>
 
           {/* MOBILE: STACKED TICKET SECTION */}
@@ -151,15 +149,12 @@ export default function SupportPage() {
             </div>
 
             <div className="rounded-2xl bg-card/60 backdrop-blur-xl border border-white/10 p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-aurora-cyan/15 text-aurora-cyan">
-                  <SearchIcon />
-                </span>
-                <h2 className="font-heading text-base font-semibold text-foreground">
-                  Track Ticket
-                </h2>
-              </div>
-              <TicketLookup />
+              <h2 className="font-heading text-base font-semibold text-foreground mb-2">
+                What happens next
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Include your account email in the form and we&apos;ll reply within 24 hours.
+              </p>
             </div>
 
             {/* Mobile quick links */}

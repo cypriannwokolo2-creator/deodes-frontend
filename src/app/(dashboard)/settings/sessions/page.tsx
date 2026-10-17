@@ -6,8 +6,19 @@ import Link from "next/link"
 import { ArrowLeft, Monitor, Smartphone, Globe, Clock, Shield, Key } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { get, del, patch } from "@/lib/api-client"
+import { getCsrfHeaders } from "@/lib/auth/csrf"
 import { useTranslate } from "@/lib/locale/context"
 import { useAuthStore } from "@/stores/auth-store"
+
+interface BackendSession {
+  id: string
+  device?: string
+  user_agent?: string
+  ip_address?: string
+  created_at?: string
+  last_active?: string
+  is_current?: boolean
+}
 
 interface SessionInfo {
   id: string
@@ -63,17 +74,28 @@ export default function SessionsSettingsPage() {
   }, [user])
 
   useEffect(() => {
-    get<{ data?: { sessions?: SessionInfo[] } }>("/sessions").then((res) => {
-      const body = (res as Record<string, unknown>)?.data as Record<string, unknown> ?? res
-      setSessions((body?.sessions ?? []) as SessionInfo[])
+    get<{ sessions?: BackendSession[] } | BackendSession[]>("/sessions").then((res) => {
+      const list = Array.isArray(res) ? res : (res?.sessions ?? [])
+      setSessions(
+        list.map((s) => ({
+          id: s.id,
+          deviceInfo: `${s.user_agent || s.device || "unknown"}|${s.ip_address || ""}`,
+          lastActive: s.last_active || s.created_at || "",
+          isCurrent: s.is_current ?? false,
+        })),
+      )
       setLoadingSessions(false)
     }).catch((e) => { logger.warn("[sessions] Failed to load sessions:", e); setLoadingSessions(false) })
 
-    get<{ data?: { passkeys?: PasskeyInfo[] } }>("/auth/passkeys").then((res) => {
-      const body = (res as Record<string, unknown>)?.data as Record<string, unknown> ?? res
-      setPasskeys((body?.passkeys ?? []) as PasskeyInfo[])
-      setLoadingPasskeys(false)
-    }).catch((e) => { logger.warn("[sessions] Failed to load passkeys:", e); setLoadingPasskeys(false) })
+    // Passkeys live in the Next.js passkey store (same-origin /api routes),
+    // not in the Go backend.
+    fetch("/api/auth/passkeys")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data: { data?: { passkeys?: PasskeyInfo[] } }) => {
+        setPasskeys(data?.data?.passkeys ?? [])
+        setLoadingPasskeys(false)
+      })
+      .catch((e) => { logger.warn("[sessions] Failed to load passkeys:", e); setLoadingPasskeys(false) })
   }, [])
 
   const handleSaveTTL = useCallback(async () => {
@@ -99,17 +121,26 @@ export default function SessionsSettingsPage() {
   }, [])
 
   const handleRevokeAll = useCallback(async () => {
-    try {
-      await del("/sessions")
-      setSessions((prev) => prev.filter((s) => s.isCurrent))
-    } catch (e) {
-      logger.error("[sessions] Failed to revoke all sessions:", e)
+    // No revoke-all endpoint: revoke every non-current session individually.
+    // Partial failure keeps the survivors listed with an error toast.
+    const others = sessions.filter((s) => !s.isCurrent)
+    const results = await Promise.allSettled(others.map((s) => del(`/sessions/${s.id}`)))
+    const revoked = new Set(
+      others.filter((_, i) => results[i].status === "fulfilled").map((s) => s.id),
+    )
+    if (revoked.size < others.length) {
+      logger.error("[sessions] Some sessions could not be revoked")
     }
-  }, [])
+    setSessions((prev) => prev.filter((s) => s.isCurrent || !revoked.has(s.id)))
+  }, [sessions])
 
   const handleRevokePasskey = useCallback(async (credentialId: string) => {
     try {
-      await del(`/auth/passkeys/${credentialId}`)
+      const res = await fetch(`/api/auth/passkeys/${encodeURIComponent(credentialId)}`, {
+        method: "DELETE",
+        headers: { ...getCsrfHeaders() },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setPasskeys((prev) => prev.filter((p) => p.credentialId !== credentialId))
     } catch (e) {
       logger.error("[sessions] Failed to revoke passkey:", e)

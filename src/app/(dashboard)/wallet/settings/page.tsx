@@ -7,7 +7,7 @@ import { ArrowLeft, Copy, Check, Trash2, Pencil, X, CircleCheck, Wallet as Walle
 import { PageHeader } from "@/components/shared/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { get, del, patch } from "@/lib/api-client"
+import { get, del } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
 import { useUIStore } from "@/stores/ui-store"
 import { formatAddress } from "@/lib/formatters"
@@ -28,7 +28,6 @@ export default function WalletSettingsPage() {
   const [nickname, setNickname] = useState("")
   const [editingNickname, setEditingNickname] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [savingNickname, setSavingNickname] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
 
@@ -58,18 +57,10 @@ export default function WalletSettingsPage() {
 
   const saveNickname = async () => {
     if (!wallet) return
-    setSavingNickname(true)
-    try {
-      await patch(`/wallets/${wallet.id}`, { nickname })
-      localStorage.setItem("wallet_nickname", nickname)
-      setEditingNickname(false)
-      addToast({ type: "success", title: "Saved", description: "Wallet nickname updated." })
-    } catch (e) {
-      logger.error("[wallet-settings] Failed to update nickname:", e)
-      addToast({ type: "error", title: "Failed", description: "Could not update nickname." })
-    } finally {
-      setSavingNickname(false)
-    }
+    // No server nickname field exists: the alias lives on this device only.
+    localStorage.setItem("wallet_nickname", nickname)
+    setEditingNickname(false)
+    addToast({ type: "success", title: "Saved", description: "Wallet nickname updated on this device." })
   }
 
   const handleDelete = async () => {
@@ -110,10 +101,10 @@ export default function WalletSettingsPage() {
                 {editingNickname ? (
                   <div className="flex items-center gap-2">
                     <Input label="Wallet nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="Nickname" className="w-40 h-8 text-sm" />
-                    <button type="button" onClick={saveNickname} disabled={savingNickname} className="text-emerald-400 hover:text-emerald-300 disabled:opacity-50" aria-label="Save wallet nickname">
-                      {savingNickname ? <Clock className="h-4 w-4 animate-spin" /> : <CircleCheck className="h-4 w-4" />}
+                    <button type="button" onClick={saveNickname} disabled={false} className="text-emerald-400 hover:text-emerald-300 disabled:opacity-50" aria-label="Save wallet nickname">
+                      <CircleCheck className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => setEditingNickname(false)} disabled={savingNickname} className="text-muted-foreground hover:text-foreground disabled:opacity-50" aria-label="Cancel editing wallet nickname"><X className="h-4 w-4" aria-hidden="true" /></button>
+                    <button type="button" onClick={() => setEditingNickname(false)} disabled={false} className="text-muted-foreground hover:text-foreground disabled:opacity-50" aria-label="Cancel editing wallet nickname"><X className="h-4 w-4" aria-hidden="true" /></button>
                   </div>
                 ) : (
                   <>
@@ -165,18 +156,6 @@ export default function WalletSettingsPage() {
             Delete
           </Button>
         </div>
-      </div>
-
-      {/* Advanced: use your own wallet */}
-      <div className="border border-white/10 rounded-xl p-5 space-y-2">
-        <h3 className="font-heading text-sm font-semibold text-foreground">Use your own wallet</h3>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Already have MetaMask, Rabby or Coinbase? Link it and sweep funds into your Deodes wallet.
-          Linking is funding only — it never logs you in or turns on auto-pay.
-        </p>
-        <Link href="/wallet/link-external" className="inline-flex items-center gap-1 text-xs text-aurora-violet hover:underline">
-          Link external wallet <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
-        </Link>
       </div>
 
       {/* Back link */}

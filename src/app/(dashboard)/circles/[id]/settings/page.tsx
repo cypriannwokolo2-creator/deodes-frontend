@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CopyButton } from "@/components/shared/copy-button"
-import { del, patch, post } from "@/lib/api-client"
+import { del, get, patch, post } from "@/lib/api-client"
 import { useUIStore } from "@/stores/ui-store"
 import type { Invite } from "@/types"
 
@@ -60,6 +60,31 @@ export default function CircleSettingsPage() {
       setAutoDebit(circle.autoDebit ?? false)
     }
   }, [circle])
+
+  useEffect(() => {
+    let cancelled = false
+    get<{ invites?: Invite[] } | Invite[]>(`/circles/${circleId}/invites`)
+      .then((res) => {
+        if (cancelled) return
+        const list = Array.isArray(res) ? res : (res?.invites ?? [])
+        setExistingInvites(list)
+      })
+      .catch((e) => logger.warn("[circle-settings] Failed to load invites:", e))
+    return () => {
+      cancelled = true
+    }
+  }, [circleId])
+
+  const handleRevokeInvite = async (code: string) => {
+    try {
+      await del(`/invites/${encodeURIComponent(code)}`)
+      setExistingInvites((prev) => prev.filter((inv) => inv.code !== code))
+      addToast({ type: "success", title: "Invite revoked" })
+    } catch (e) {
+      logger.error("[circle-settings] Failed to revoke invite:", e)
+      addToast({ type: "error", title: "Failed to revoke invite" })
+    }
+  }
 
   const isOrganizer = circle?.organizerId === user?.id
 
@@ -362,9 +387,19 @@ export default function CircleSettingsPage() {
                         {inv.useCount}/{inv.maxUses} uses
                       </p>
                     </div>
-                    <Badge variant="success" size="sm">
-                      Active
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="success" size="sm">
+                        Active
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRevokeInvite(inv.code)}
+                        className="text-xs h-7 text-red-400"
+                      >
+                        Revoke
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

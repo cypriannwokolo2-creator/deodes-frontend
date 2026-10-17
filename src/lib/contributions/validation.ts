@@ -113,17 +113,18 @@ export function validateRoundNumber(round: unknown): string | null {
 export interface ContributeInput {
   amount: number;
   currency: string;
-  walletAddress: string;
+  /** Optional: with no connected wallet there is no address to check. */
+  walletAddress?: string;
   roundNumber: number;
   txnHash?: string;
   expectedAmount?: number;
   isPremium?: boolean;
 }
 
-/** Full pre-flight check before any wallet prompt. Returns first error. */
+/** Full pre-flight check before submitting. Returns first error. */
 export function validateContributeInput(input: ContributeInput): string | null {
   return (
-    validateArcAddress(input.walletAddress) ??
+    (input.walletAddress ? validateArcAddress(input.walletAddress) : null) ??
     validateCurrency(input.currency) ??
     validateContributionAmount(input.amount, {
       expectedAmount: input.expectedAmount,

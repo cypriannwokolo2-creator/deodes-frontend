@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Button, ButtonLink } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { get } from "@/lib/api-client"
+import { get, getErrorMessage } from "@/lib/api-client"
 import { cn } from "@/lib/cn"
 import { Routes } from "@/lib/constants"
 import { useTranslate } from "@/lib/locale/context"
@@ -44,11 +44,13 @@ export default function CommunitiesPage() {
   const [category, setCategory] = useState("")
   const [communities, setCommunities] = useState<CommunitySummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [hasNext, setHasNext] = useState(false)
 
   const load = useCallback(async (pageNum = 1) => {
     setLoading(true)
+    setLoadError(null)
     try {
       const params = new URLSearchParams()
       if (search.trim()) params.set("search", search.trim())
@@ -68,7 +70,10 @@ export default function CommunitiesPage() {
       setHasNext(meta ? Number(meta.page) < Number(meta.totalPages) : false)
     } catch (e) {
       logger.error("[communities] Failed to load communities:", e)
-      if (pageNum === 1) setCommunities([])
+      if (pageNum === 1) {
+        setCommunities([])
+        setLoadError(getErrorMessage(e))
+      }
     } finally {
       setLoading(false)
     }
@@ -144,8 +149,18 @@ export default function CommunitiesPage() {
         </div>
       )}
 
-      {/* Empty */}
-      {!loading && communities.length === 0 && (
+      {/* Empty / error */}
+      {!loading && loadError && communities.length === 0 && (
+        <div className="text-center py-12">
+          <EmptyState
+            icon={<Users className="h-6 w-6" />}
+            title="Couldn't load communities"
+            description="Check your connection and try again."
+            action={{ label: "Retry", onClick: () => load(1) }}
+          />
+        </div>
+      )}
+      {!loading && !loadError && communities.length === 0 && (
         <div className="text-center py-12">
           <EmptyState
             icon={<Users className="h-6 w-6" />}
@@ -239,7 +254,7 @@ function CommunityCard({ community }: { community: CommunitySummary }) {
           </span>
           <span className="flex items-center gap-1">
             <TrendingUp className="h-3 w-3" />
-            ${community.totalSaved.toFixed(2)} saved
+            {community.totalSaved.toFixed(2)} USDC saved
           </span>
         </div>
       </div>

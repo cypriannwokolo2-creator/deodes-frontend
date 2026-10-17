@@ -1,23 +1,19 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Menu,
   X,
-  Wallet,
   Bell,
 } from "lucide-react";
 import { useAppHost } from "@/hooks/use-app-host";
 import { cn } from "@/lib/cn";
 import { formatAddress } from "@/lib/formatters";
 import { Routes } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
-import { useMultiWallet } from "@/hooks/use-multi-wallet";
 import { useUnreadCount } from "@/hooks/use-notifications";
-import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
@@ -25,10 +21,31 @@ interface HeaderProps {
 }
 
 function HeaderComponent({ onToggleMobileMenu, isMobileMenuOpen }: HeaderProps) {
-  const { isConnected, address } = useMultiWallet();
   const unreadCount = useUnreadCount();
-  const [showConnectModal, setShowConnectModal] = useState(false);
   const isAppHost = useAppHost();
+  const [hostedAddress, setHostedAddress] = useState<string | null>(null);
+
+  // Header pill shows the hosted wallet — the account's one true address.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { get } = await import("@/lib/api-client");
+        const res = (await get("/wallets")) as Record<string, unknown>;
+        const data = (res?.data as Record<string, unknown> | undefined) ?? res;
+        const list = (data?.wallets ?? []) as { publicKey?: unknown; walletType?: unknown }[];
+        const hosted = list.find((w) => w.walletType === "hosted");
+        if (!cancelled && typeof hosted?.publicKey === "string") {
+          setHostedAddress(hosted.publicKey);
+        }
+      } catch {
+        // Pill simply stays hidden when the list is unreachable.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
@@ -79,32 +96,20 @@ function HeaderComponent({ onToggleMobileMenu, isMobileMenuOpen }: HeaderProps) 
             </button>
 
             <div>
-              {isConnected && address ? (
-                <div
+              {hostedAddress ? (
+                <Link
+                  href="/wallet"
+                  aria-label="View wallet"
                   className={cn(
                     "flex items-center gap-2 glass-whisper px-3 py-1.5 rounded-full",
                   )}
                 >
                   <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
                   <span className="font-mono text-xs text-foreground tracking-tight">
-                    {formatAddress(address)}
+                    {formatAddress(hostedAddress)}
                   </span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowConnectModal(true)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-body",
-                    "glass-whisper text-muted-foreground",
-                    "hover:text-foreground",
-                    "hidden sm:inline-flex",
-                  )}
-                >
-                  <Wallet className="h-3.5 w-3.5" />
-                  <span>Connect</span>
-                </button>
-              )}
+                </Link>
+              ) : null}
             </div>
 
             <div>
@@ -134,84 +139,8 @@ function HeaderComponent({ onToggleMobileMenu, isMobileMenuOpen }: HeaderProps) 
           </div>
         </div>
       </header>
-
-      {showConnectModal && (
-        <ConnectWalletModal onClose={() => setShowConnectModal(false)} />
-      )}
     </>
   );
 }
 
 export const Header = memo(HeaderComponent);
-
-function ConnectWalletModal({ onClose }: { onClose: () => void }) {
-  const { isConnecting, error, setSelectorOpen } = useMultiWallet();
-  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
-
-  const handleConnect = () => {
-    setSelectorOpen(true);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-      <button
-        type="button"
-        aria-label="Close connect wallet dialog"
-        tabIndex={-1}
-        onClick={onClose}
-        className="absolute inset-0 cursor-default"
-      />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="connect-wallet-title"
-        tabIndex={-1}
-        className="relative z-10 w-full max-w-sm rounded-2xl glass-premium p-6 depth-4"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full glass-strong" aria-hidden="true">
-            <Wallet className="h-6 w-6 text-aurora-violet" />
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close connect wallet dialog" className="rounded-full p-2 text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-        <h3 id="connect-wallet-title" className="text-lg font-heading font-bold gradient-text-extended mb-1.5">
-          Link Wallet
-        </h3>
-        <p className="text-sm text-muted-foreground font-body mb-5">
-          Link your own wallet to move funds in. Linking never logs you in or turns on auto-pay.
-        </p>
-
-        {error && (
-          <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-sm text-red-400 font-body">
-            {error}
-          </div>
-        )}
-
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full rounded-xl font-heading"
-          leftIcon={<Wallet className="h-5 w-5" />}
-          isLoading={isConnecting}
-          onClick={handleConnect}
-        >
-          {isConnecting ? "Connecting..." : "Connect Wallet"}
-        </Button>
-
-        <p className="mt-3 text-center text-xs text-muted-foreground font-body">
-          Need a wallet?{" "}
-          <a
-            href="/docs"
-            className="text-[rgb(var(--aurora-cyan))] hover:underline"
-          >
-            Find one here
-          </a>
-        </p>
-      </div>
-    </div>
-  );
-}

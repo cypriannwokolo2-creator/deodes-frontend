@@ -3,15 +3,12 @@
 import { useEffect, useState } from "react"
 import { get } from "@/lib/api-client"
 import { logger } from "@/lib/logger"
-import { useMultiWallet } from "@/hooks/use-multi-wallet"
 
 /**
- * Balance shape from GET /wallets/balance. The `xlm` field is legacy —
- * callers must not render it. USDC on Arc (18 decimals, gas token) is the
- * only asset the wallet displays.
+ * Balance shape from GET /wallets/balance. USDC on Arc (18 decimals, gas
+ * token) is the only asset the wallet displays.
  */
 export interface BalanceInfo {
-  xlm: string
   usdc: string
 }
 
@@ -40,14 +37,11 @@ interface Overview {
   balance: BalanceInfo | null
   transactions: ActivityItem[]
   hostedWallet: HostedWalletInfo | null
-  connectedName: string | null
-  connectedAddress: string | null
   loading: boolean
 }
 
 /** Single data source for the wallet page: hosted wallet, balance, activity. */
 export function useWalletOverview(): Overview {
-  const { address, activeWalletId, wallets } = useMultiWallet()
   const [balance, setBalance] = useState<BalanceInfo | null>(null)
   const [transactions, setTransactions] = useState<ActivityItem[]>([])
   const [hostedWallet, setHostedWallet] = useState<HostedWalletInfo | null>(null)
@@ -102,7 +96,7 @@ export function useWalletOverview(): Overview {
         const data = (raw?.data as Record<string, unknown> | undefined) ?? raw
         const list = (data?.wallets ?? []) as HostedWalletInfo[]
         const hosted = list.find((w) => w.walletType === "hosted")
-        setHostedWallet(hosted ?? list[0] ?? null)
+        setHostedWallet(hosted ?? null)
       })
       .catch(() => {})
     return () => {
@@ -110,14 +104,10 @@ export function useWalletOverview(): Overview {
     }
   }, [])
 
-  const activeWallet = activeWalletId ? wallets[activeWalletId] : null
-
   return {
     balance,
     transactions,
     hostedWallet,
-    connectedName: activeWallet ? activeWallet.adapter.meta.name : null,
-    connectedAddress: address ?? null,
     loading,
   }
 }

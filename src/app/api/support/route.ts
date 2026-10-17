@@ -13,7 +13,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Log the support request (in production, this would send to a support system)
+    // Support triage channel: tickets land in the server log until the
+    // ticket store exists. The reporter email is intentionally retained
+    // (plaintext) — it is the reply path, and this route is the product's
+    // only inbound support contact. Revisit when tickets gain storage.
     console.log("[Support Request]", {
       email,
       message,

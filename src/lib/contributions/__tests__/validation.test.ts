@@ -40,7 +40,7 @@ describe("contribution validation (Arc USDC only)", () => {
 
   it("enforces USDC-only currency", () => {
     expect(validateCurrency("USDC")).toBeNull();
-    expect(validateCurrency("XLM")).toMatch(/Only USDC/);
+    expect(validateCurrency("EUR")).toMatch(/Only USDC/);
     expect(validateCurrency("USD")).toMatch(/Only USDC/);
   });
 
@@ -62,8 +62,7 @@ describe("contribution validation (Arc USDC only)", () => {
     expect(validateRoundNumber(1.5)).toMatch(/integer/);
   });
 
-  it("pre-flights a full contribute input", () => {
-    expect(
+  it("pre-flights a full contribute input", () => {    expect(
       validateContributeInput({
         amount: 100,
         currency: "USDC",
@@ -75,11 +74,22 @@ describe("contribution validation (Arc USDC only)", () => {
     expect(
       validateContributeInput({
         amount: 100,
-        currency: "XLM",
+        currency: "EUR",
         walletAddress: ADDR,
         roundNumber: 2,
       }),
     ).toMatch(/Only USDC/);
+  });
+
+  it("accepts a missing wallet address (manual-hash contributions)", () => {
+    expect(
+      validateContributeInput({
+        amount: 100,
+        currency: "USDC",
+        roundNumber: 2,
+        expectedAmount: 100,
+      }),
+    ).toBeNull();
   });
 
   it("builds a replay-resistant intent message", () => {

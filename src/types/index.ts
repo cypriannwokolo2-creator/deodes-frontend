@@ -13,7 +13,8 @@ export type PayoutType = "random" | "fixed" | "auction" | "vote"
 
 export type Frequency = "daily" | "weekly" | "biweekly" | "monthly"
 
-export type Currency = "USDC" | "XLM"
+/** Arc USDC is the only supported currency. */
+export type Currency = "USDC"
 
 export type MemberStatus =
   | "invited"
@@ -37,10 +38,19 @@ export interface User {
   email?: string | null
   phone?: string | null
   displayName?: string | null
+  username?: string | null
   avatarIpfsHash?: string | null
   countryCode?: string | null
   preferredLanguage: string
   moiScore: number
+  /** Savings + currency preferences (backend 061), via PATCH /users/me. */
+  savingsAutoReserve?: boolean
+  savingsDefaultTarget?: number
+  savingsDefaultFrequency?: string
+  savingsNotifyOnMilestone?: boolean
+  savingsMilestoneThreshold?: number
+  preferredCurrency?: string
+  totpEnabled?: boolean
   /** Backend role claim ("user" | "admin"). Absent on cached profiles that
       predate the admin section; treat missing as non-admin. */
   role?: string
@@ -85,6 +95,8 @@ export interface CircleMember {
   position: number
   status: MemberStatus
   userName?: string | null
+  username?: string | null
+  displayName?: string | null
   userAddress?: string | null
   joinedAt: string
 }
@@ -283,7 +295,6 @@ export interface WalletState {
   isConnected: boolean
   address?: string | null
   balance?: {
-    xlm: string
     usdc: string
   } | null
   network?: string | null

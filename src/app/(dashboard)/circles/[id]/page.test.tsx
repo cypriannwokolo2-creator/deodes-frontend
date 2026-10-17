@@ -41,10 +41,6 @@ vi.mock("@/hooks/use-payouts", () => ({
   useTriggerPayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-vi.mock("@/hooks/use-multi-wallet", () => ({
-  useMultiWallet: () => ({ address: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", signMessage: vi.fn() }),
-}));
-
 vi.mock("@/hooks/use-subscriptions", () => ({
   useSubscribe: () => ({ mutateAsync: subscribeMutate, isPending: false }),
   useMySubscriptions: () => ({ data: undefined, isLoading: false }),

@@ -123,6 +123,19 @@ function localeCodeToDateFnsLocale(localeCode: string): Locale {
 const ISO_CURRENCY_CODE = /^[A-Za-z]{3}$/
 
 /**
+ * Protocol fee in basis points — mirrors FeeBps in the Go backend
+ * (internal/domain/circle/distribution.go). Fee displays derive from this,
+ * never from hardcoded "0.5%" strings.
+ */
+export const PROTOCOL_FEE_BPS = 50;
+export const PROTOCOL_FEE_DENOMINATOR = 10_000;
+
+export function formatFeePercent(): string {
+  const pct = (PROTOCOL_FEE_BPS / PROTOCOL_FEE_DENOMINATOR) * 100;
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(2)}%`;
+}
+
+/**
  * Format a numeric amount for a given locale. `locale` is threaded to
  * `Intl` so grouping separators, currency placement and decimal separators
  * follow the active language rather than being pinned to `en-US`. Falls back
@@ -133,16 +146,11 @@ export function formatCurrency(
   currency: string,
   locale: string = DEFAULT_LOCALE
 ): string {
-  if (currency === "XLM") {
-    return `${amount.toLocaleString(locale, { maximumFractionDigits: 4 })} XLM`
-  }
-
-  // Non-ISO codes (assets such as XLM or USDC) cannot go through
+  // Non-ISO codes (the app's Arc USDC asset) cannot go through
   // `Intl` with style: "currency" — it throws a RangeError on anything it
-  // cannot resolve, which is an uncaught exception rather than a formatting nit,
-  // and circles can legitimately be denominated in those assets. Render them as
-  // a plain number plus the code, because a token has no fiat quote and a
-  // currency symbol would imply one.
+  // cannot resolve, which is an uncaught exception rather than a formatting nit.
+  // Render them as a plain number plus the code, because a token has no fiat
+  // quote and a currency symbol would imply one.
   if (!ISO_CURRENCY_CODE.test(currency)) {
     return `${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
   }

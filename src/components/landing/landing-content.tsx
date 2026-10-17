@@ -355,7 +355,7 @@ export function LandingContent() {
       <div className="auroral-mesh min-h-screen">
         {/* ═══ HERO — left-aligned, zero-lag rotating word ═══ */}
         <section className="relative z-10 min-h-[92vh] flex flex-col justify-center overflow-hidden">
-          {/* Compressed aurora backdrop (1280px, <3KB): plain <img> so it
+          {/* Compressed aurora backdrop (1280px, ~4KB): plain <img> so it
               paints on first paint with zero JS cost. object-cover lets the
               720p file fill any viewport — pure blur upscales invisibly.
               Dark theme only: light theme gets a clean pastel gradient. */}
@@ -366,6 +366,12 @@ export function LandingContent() {
             fetchPriority="high"
             decoding="async"
             className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover dark:block"
+          />
+          {/* Dark scrim: deepens the mesh and keeps headline/CTA contrast
+              high no matter where the aurora blobs land on wide viewports. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-black/60 via-black/10 to-black/30 dark:block"
           />
           <div
             aria-hidden="true"

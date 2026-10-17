@@ -97,7 +97,7 @@ describe("validateCircleStep — step 2 (Financials)", () => {
   it("fixes currency to USDC", () => {
     const result = validateCircleStep(
       2,
-      { ...base, contributionAmount: 100, currency: "XLM" as never },
+      { ...base, contributionAmount: 100, currency: "EUR" as never },
       500,
     )
     expect(result.success).toBe(false)

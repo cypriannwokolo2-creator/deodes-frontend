@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger"
 import type { WalletAdapter, WalletMeta } from "./types"
-import { isPasskeyEnabled, isWalletConnectEnabled } from "./features"
+import { isPasskeyEnabled } from "./features"
 
 export type DetectionResult = WalletMeta & { status: "detected" | "not_detected" }
 
@@ -66,7 +66,6 @@ export class WalletRegistry {
 
   private isAdapterEnabled(id: string): boolean {
     if (id === "passkey" && !isPasskeyEnabled()) return false
-    if (id === "walletconnect" && !isWalletConnectEnabled()) return false
     return true
   }
 }

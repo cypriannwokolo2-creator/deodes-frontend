@@ -58,8 +58,11 @@ export const OTPInput = forwardRef<HTMLInputElement, OTPInputProps>(function OTP
             aria-hidden="true"
             data-otp-slot={index}
             className={cn(
-              "flex h-12 w-10 items-center justify-center rounded-xl border bg-white/5 font-heading text-xl font-bold text-foreground transition-all sm:h-14 sm:w-12",
-              code[index] ? "border-aurora-violet/50" : "border-white/10",
+              // Theme-aware slots: the app is dual-theme (light default), so
+              // hardcoded white/5 + white/10 rendered invisible boxes on the
+              // light card. Foreground-tinted tokens stay visible either way.
+              "flex h-12 w-10 items-center justify-center rounded-xl border bg-foreground/[0.04] font-heading text-xl font-bold text-foreground transition-all sm:h-14 sm:w-12",
+              code[index] ? "border-aurora-violet/50" : "border-foreground/15",
               focused && index === Math.min(code.length, length - 1) && "border-foreground ring-1 ring-foreground",
               error && "border-red-500/70",
               disabled && "opacity-40",

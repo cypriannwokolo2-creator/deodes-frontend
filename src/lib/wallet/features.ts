@@ -17,15 +17,3 @@ export function isFeatureEnabled(flag: string): boolean {
 export function isPasskeyEnabled(): boolean {
   return isFeatureEnabled("NEXT_PUBLIC_FEATURE_PASSKEY")
 }
-
-export function isHardwareWalletEnabled(): boolean {
-  return isFeatureEnabled("NEXT_PUBLIC_FEATURE_HARDWARE_WALLET")
-}
-
-export function isWalletConnectEnabled(): boolean {
-  return isFeatureEnabled("NEXT_PUBLIC_FEATURE_WALLETCONNECT")
-}
-
-export function isExtensionWalletsEnabled(): boolean {
-  return isFeatureEnabled("NEXT_PUBLIC_FEATURE_EXTENSION_WALLETS")
-}

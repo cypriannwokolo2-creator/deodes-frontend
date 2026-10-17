@@ -25,6 +25,43 @@ export interface GovernanceProposal {
   executionPayload?: string
 }
 
+interface BackendProposal {
+  id: string
+  title: string
+  description: string
+  proposalType?: string
+  creatorId?: string
+  status: string
+  forVotes?: number
+  againstVotes?: number
+  executableAt?: string | null
+  createdAt?: string
+}
+
+function toFrontend(p: BackendProposal): GovernanceProposal {
+  const statusMap: Record<string, ProposalStatus> = {
+    pending: "active",
+    active: "active",
+    passed: "passed",
+    executed: "passed",
+    rejected: "defeated",
+    defeated: "defeated",
+    cancelled: "defeated",
+  }
+  return {
+    id: String(p.id),
+    title: p.title,
+    description: p.description,
+    status: statusMap[p.status] ?? "active",
+    category: p.proposalType,
+    votesFor: p.forVotes ?? 0,
+    votesAgainst: p.againstVotes ?? 0,
+    timelockEndsAt: p.executableAt ?? null,
+    createdAt: p.createdAt,
+    proposer: p.creatorId,
+  }
+}
+
 export const MOCK_GOVERNANCE_PROPOSALS: GovernanceProposal[] = [
   {
     id: "prop_101",
@@ -83,13 +120,18 @@ export const MOCK_GOVERNANCE_PROPOSALS: GovernanceProposal[] = [
   },
 ]
 
-export async function listProposals(status: ProposalStatus = "all") {
+export async function listProposals(status: ProposalStatus = "all", search = "") {
   try {
-    const result = await get<{ proposals?: GovernanceProposal[] } | GovernanceProposal[]>(
-      `/governance/proposals${status !== "all" ? `?status=${status}` : ""}`,
+    const params = new URLSearchParams()
+    if (status !== "all") params.set("status", status)
+    const q = search.trim()
+    if (q) params.set("search", q)
+    const qs = params.toString()
+    const result = await get<{ proposals?: BackendProposal[] } | BackendProposal[]>(
+      `/governance/proposals${qs ? `?${qs}` : ""}`,
     )
     const list = Array.isArray(result) ? result : result.proposals ?? []
-    if (list.length > 0) return list
+    if (list.length > 0) return list.map(toFrontend)
   } catch {
     // API mock fallback
   }
@@ -100,11 +142,11 @@ export async function listProposals(status: ProposalStatus = "all") {
 
 export async function getProposal(id: string) {
   try {
-    const result = await get<{ proposal?: GovernanceProposal } | GovernanceProposal>(
+    const result = await get<{ proposal?: BackendProposal } | BackendProposal>(
       `/governance/proposals/${id}`,
     )
-    const p = "proposal" in result && result.proposal ? result.proposal : (result as GovernanceProposal)
-    if (p && p.id) return p
+    const p = "proposal" in result && result.proposal ? result.proposal : (result as BackendProposal)
+    if (p && p.id) return toFrontend(p)
   } catch {
     // API mock fallback
   }
@@ -112,33 +154,29 @@ export async function getProposal(id: string) {
   return MOCK_GOVERNANCE_PROPOSALS.find((p) => p.id === id) || MOCK_GOVERNANCE_PROPOSALS[0]
 }
 
-export function createProposal(input: {
+export async function createProposal(input: {
   title: string
   description: string
   executionPayload: string
   category?: string
-}) {
-  const newProp: GovernanceProposal = {
-    id: `prop_${Date.now().toString().slice(-4)}`,
-    title: input.title,
-    description: input.description,
-    status: "active",
-    category: input.category || "Rule Amendment",
-    votesFor: 1,
-    votesAgainst: 0,
-    votesAbstain: 0,
-    timelockEndsAt: new Date(Date.now() + 86400000 * 7).toISOString(),
-    createdAt: new Date().toISOString().split("T")[0],
-    executionPayload: input.executionPayload,
-  }
-  MOCK_GOVERNANCE_PROPOSALS.unshift(newProp)
-  return Promise.resolve(newProp)
+}): Promise<GovernanceProposal> {
+  const result = await post<{ proposal?: BackendProposal } | BackendProposal>(
+    "/governance/proposals",
+    {
+      title: input.title.trim(),
+      description: input.description.trim(),
+      proposalType: input.category || "Rule Amendment",
+    },
+  )
+  const p = "proposal" in result && result.proposal ? result.proposal : (result as BackendProposal)
+  if (!p || !p.id) throw new Error("Proposal creation failed. Please try again.")
+  return toFrontend(p)
 }
 
 export type VoteChoice = "for" | "against" | "abstain"
 
 /** Path a vote is submitted to, relative to the API base. */
-export const VOTE_PATH = (id: string) => `/governance/proposals/${id}/votes`
+export const VOTE_PATH = (id: string) => `/governance/proposals/${id}/vote`
 
 /**
  * Cast a vote on a proposal.
@@ -162,7 +200,7 @@ export const VOTE_PATH = (id: string) => `/governance/proposals/${id}/votes`
 export async function voteOnProposal(
   id: string,
   support: boolean | VoteChoice,
-  reason?: string,
+  _reason?: string,
 ): Promise<{ success: boolean; proposal: GovernanceProposal | undefined }> {
   // The hook historically passed a boolean while the store and UI speak a
   // three-way choice, so normalise at the boundary rather than forwarding the
@@ -170,9 +208,16 @@ export async function voteOnProposal(
   const choice: VoteChoice =
     support === true ? "for" : support === false ? "against" : "abstain"
 
+  // The chain records for/against only — abstention is a valid UI position
+  // but has no on-chain expression, so it is refused loudly rather than
+  // misrecorded as a vote against.
+  if (choice === "abstain") {
+    throw new Error("Abstentions are not recorded on-chain yet — vote for or against.")
+  }
+
   const result = await post<{ proposal?: GovernanceProposal } | GovernanceProposal>(
     VOTE_PATH(id),
-    { support: choice, ...(reason ? { reason } : {}) },
+    { vote: choice === "for" },
   )
 
   const returned =

@@ -1,37 +1,16 @@
 "use client"
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
+import { createContext, useContext, useEffect, type ReactNode } from "react"
 import {
   useAuthFlowStore,
   type AuthFlowStore,
-  type AuthFlowStatus,
 } from "@/stores/auth-flow-store"
-import { useMultiWalletStore } from "@/stores/multi-wallet-store"
 
 type AuthFlowContextValue = null
 
 const AuthFlowContext = createContext<AuthFlowContextValue>(null)
 
 export function AuthFlowProvider({ children }: { children: ReactNode }) {
-  const prevStatusRef = useRef<AuthFlowStatus["status"]>("idle")
-
-  useEffect(() => {
-    const unsub = useAuthFlowStore.subscribe((state) => {
-      const status = state.status.status
-      const address = state.connection.address
-      const prevStatus = prevStatusRef.current
-
-      if (status === "connected" && prevStatus !== "connected" && state.connection.walletId && address) {
-        useMultiWalletStore.getState().setLoginError(null)
-        useMultiWalletStore.getState().setRegisterError(null)
-      }
-
-      prevStatusRef.current = status
-    })
-
-    return unsub
-  }, [])
-
   // Multi-tab sync: listen for storage events
   useEffect(() => {
     function handleStorageChange(event: StorageEvent) {

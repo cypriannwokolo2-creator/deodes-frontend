@@ -2,18 +2,17 @@
 
 import Link from "next/link"
 import { Wallet as WalletIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 interface WalletEmptyStateProps {
   signedIn: boolean
-  onConnect: () => void
 }
 
 /**
  * Empty states: visitors who are not signed in get a sign-in CTA,
- * signed-in users without any wallet get a connect CTA.
+ * signed-in users without a hosted wallet yet get pointed at deposit,
+ * which creates the hosted wallet on demand.
  */
-export function WalletEmptyState({ signedIn, onConnect }: WalletEmptyStateProps) {
+export function WalletEmptyState({ signedIn }: WalletEmptyStateProps) {
   return (
     <div
       data-testid="wallet-empty-state"
@@ -47,17 +46,16 @@ export function WalletEmptyState({ signedIn, onConnect }: WalletEmptyStateProps)
             No wallet yet
           </h2>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Connect a wallet to hold USDC on Arc and join savings circles.
+            Your Deodes hosted wallet is created automatically when you make
+            your first deposit.
           </p>
-          <Button
-            variant="primary"
-            size="md"
-            onClick={onConnect}
-            data-testid="wallet-connect-cta"
-            className="mt-2"
+          <Link
+            href="/wallet/deposit"
+            data-testid="wallet-setup-cta"
+            className="mt-2 inline-flex h-11 items-center justify-center rounded-xl px-8 text-sm font-medium gradient-bg-extended text-white holo-glow"
           >
-            Connect wallet
-          </Button>
+            Set up my wallet
+          </Link>
         </>
       )}
     </div>

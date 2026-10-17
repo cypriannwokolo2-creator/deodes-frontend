@@ -44,13 +44,6 @@ const ARC_ENDPOINTS = [
  */
 const FALLBACK_API_ORIGIN = "http://localhost:1100"
 
-const WALLETCONNECT_ENDPOINTS = [
-  "https://*.walletconnect.com",
-  "https://*.walletconnect.org",
-  "wss://*.walletconnect.com",
-  "wss://*.walletconnect.org",
-]
-
 const CAPTCHA_HOSTS = ["https://*.hcaptcha.com", "https://challenges.cloudflare.com"]
 
 const ANALYTICS_HOSTS = ["https://mc.yandex.ru", "https://mc.yandex.com"]
@@ -163,7 +156,6 @@ export function buildCsp(
     ...configuredOrigins(),
     ...toOrigin(process.env.NEXT_PUBLIC_ARC_RPC_URL),
     ...ARC_ENDPOINTS,
-    ...WALLETCONNECT_ENDPOINTS,
     ...ONRAMP_HOSTS,
     ...CAPTCHA_HOSTS,
     ...ANALYTICS_HOSTS,
@@ -180,7 +172,7 @@ export function buildCsp(
     ["img-src", ["'self'", "data:", "blob:", "https:"]],
     ["font-src", ["'self'", "data:"]],
     ["connect-src", connectSrc],
-    ["frame-src", ["'self'", ...CAPTCHA_HOSTS, ...ANALYTICS_HOSTS, ONRAMP_WIDGET_HOST, ONRAMP_SANDBOX_WIDGET_HOST, "https://verify.walletconnect.com", "https://verify.walletconnect.org"]],
+    ["frame-src", ["'self'", ...CAPTCHA_HOSTS, ...ANALYTICS_HOSTS, ONRAMP_WIDGET_HOST, ONRAMP_SANDBOX_WIDGET_HOST]],
     ["worker-src", ["'self'", "blob:"]],
     ["manifest-src", ["'self'"]],
     ["object-src", ["'none'"]],

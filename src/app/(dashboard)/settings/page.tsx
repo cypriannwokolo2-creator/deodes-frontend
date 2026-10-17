@@ -4,8 +4,9 @@ import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslate } from "@/lib/locale/context"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Settings, Bell, EyeOff, Sun, CreditCard, PiggyBank, Monitor, Globe, Wallet, DatabaseBackup } from "lucide-react"
+import { Settings, Bell, EyeOff, Sun, CreditCard, PiggyBank, Monitor, Globe, Wallet, DatabaseBackup, ShieldCheck } from "lucide-react"
 import { formatAddress } from "@/lib/formatters"
+import { displayNameOf, avatarInitialOf } from "@/lib/profile/names"
 
 const SETTINGS_SECTIONS = [
   { titleKey: "settings.account", href: "/settings/account", icon: Settings, descKey: "settings.accountDesc" },
@@ -17,6 +18,7 @@ const SETTINGS_SECTIONS = [
   { titleKey: "settings.payment", href: "/settings/payment", icon: CreditCard, descKey: "settings.paymentDesc" },
   { titleKey: "settings.savings", href: "/settings/savings", icon: PiggyBank, descKey: "settings.savingsDesc" },
   { titleKey: "settings.sessions", href: "/settings/sessions", icon: Monitor, descKey: "settings.sessionsDesc" },
+  { titleKey: "settings.security", href: "/settings/security", icon: ShieldCheck, descKey: "settings.securityDesc" },
   { titleKey: "settings.wallets", href: "/wallet", icon: Wallet, descKey: "settings.walletsDesc" },
 ]
 
@@ -41,11 +43,11 @@ export default function SettingsHubPage() {
       <div className="glass-premium rounded-2xl p-6 holo-border">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-full gradient-bg text-white font-mono text-lg font-bold shrink-0">
-            {user?.displayName?.charAt(0)?.toUpperCase() ?? user?.walletAddress?.slice(0, 2)?.toUpperCase() ?? "U"}
+            {avatarInitialOf(user)}
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-heading text-lg font-semibold text-foreground truncate">
-              {user?.displayName ?? "User"}
+              {displayNameOf(user) ?? "User"}
             </p>
             <p className="text-xs text-muted-foreground font-mono truncate">
               {user?.walletAddress ? formatAddress(user.walletAddress) : "No wallet"}

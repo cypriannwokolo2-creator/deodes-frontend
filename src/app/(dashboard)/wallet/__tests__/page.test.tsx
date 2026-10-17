@@ -3,27 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import WalletPage from "../page"
 
 const HOSTED_ADDRESS = `0x${"a".repeat(40)}`
-const CONNECTED_ADDRESS = `0x${"c".repeat(40)}`
+const LINKED_ADDRESS = `0x${"c".repeat(40)}`
 const TX_HASH = `0x${"b".repeat(64)}`
 
-const mockWalletState: {
-  address: string | null
-  activeWalletId: string | null
-  wallets: Record<string, { publicKey: string; adapter: { meta: { name: string } } }>
-  setSelectorOpen: ReturnType<typeof vi.fn>
-} = {
-  address: null,
-  activeWalletId: null,
-  wallets: {},
-  setSelectorOpen: vi.fn(),
-}
-
-vi.mock("@/hooks/use-multi-wallet", () => ({
-  useMultiWallet: () => mockWalletState,
-}))
-
 const apiFixtures = {
-  balance: { data: { balance: { xlm: "10.5", usdc: "1250.50" } } },
+  balance: { data: { balance: { usdc: "1250.50" } } },
   wallets: { data: { wallets: [{ publicKey: HOSTED_ADDRESS, walletType: "hosted" }] } },
   contributions: {
     data: {
@@ -64,14 +48,7 @@ vi.mock("@/lib/locale/context", () => ({
   useTranslate: () => ({ t: (key: string) => key, locale: "en-US" }),
 }))
 
-vi.mock("next/dynamic", () => ({
-  default: () => () => <div data-testid="wallet-settings-stub" />,
-}))
-
 function hostedOnly() {
-  mockWalletState.address = null
-  mockWalletState.activeWalletId = null
-  mockWalletState.wallets = {}
   apiFixtures.wallets = { data: { wallets: [{ publicKey: HOSTED_ADDRESS, walletType: "hosted" }] } }
   authState.isAuthenticated = true
   authState.isLoading = false
@@ -103,16 +80,21 @@ describe("WalletPage fintech layout", () => {
     expect(explorerLink.getAttribute("href")).toContain(`/address/${HOSTED_ADDRESS}`)
   })
 
-  it("shows Connected badge for an attached 0x wallet", async () => {
-    mockWalletState.address = CONNECTED_ADDRESS
-    mockWalletState.activeWalletId = "metamask"
-    mockWalletState.wallets = {
-      metamask: { publicKey: CONNECTED_ADDRESS, adapter: { meta: { name: "MetaMask" } } },
+  it("ignores non-hosted wallets and always shows the hosted address", async () => {
+    apiFixtures.wallets = {
+      data: {
+        wallets: [
+          { publicKey: LINKED_ADDRESS, walletType: "linked" },
+          { publicKey: HOSTED_ADDRESS, walletType: "hosted" },
+        ],
+      },
     }
     render(<WalletPage />)
 
-    expect(await screen.findByText("Connected · MetaMask")).toBeInTheDocument()
-    expect(screen.queryByText("Hosted Deodes wallet")).toBeNull()
+    expect(await screen.findByText("Hosted Deodes wallet")).toBeInTheDocument()
+    expect(screen.queryByText(/Connected/i)).toBeNull()
+    const explorerLink = screen.getByRole("link", { name: "View wallet address in Arc explorer" })
+    expect(explorerLink.getAttribute("href")).toContain(`/address/${HOSTED_ADDRESS}`)
   })
 
   it("links Send/Deposit/Withdraw to the right routes and opens Receive modal", async () => {
@@ -141,14 +123,13 @@ describe("WalletPage fintech layout", () => {
     expect(screen.getByText(/\+100\.00 USDC/)).toBeInTheDocument()
   })
 
-  it("shows a connect CTA when signed in with no wallet", async () => {
+  it("shows a setup CTA linking to deposit when signed in with no wallet", async () => {
     apiFixtures.wallets = { data: { wallets: [] } }
     render(<WalletPage />)
 
     expect(await screen.findByTestId("wallet-empty-state")).toBeInTheDocument()
-    const cta = screen.getByTestId("wallet-connect-cta")
-    fireEvent.click(cta)
-    expect(mockWalletState.setSelectorOpen).toHaveBeenCalledWith(true)
+    const cta = screen.getByTestId("wallet-setup-cta")
+    expect(cta.getAttribute("href")).toBe("/wallet/deposit")
   })
 
   it("shows a sign-in CTA when not signed in", async () => {

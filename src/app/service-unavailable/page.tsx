@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { getCsrfHeaders } from "@/lib/auth/csrf"
 import { Activity, ExternalLink, House, RefreshCw, Send, CheckCircle } from "lucide-react"
 
 export default function ServiceUnavailable() {
@@ -23,7 +24,7 @@ export default function ServiceUnavailable() {
     try {
       const response = await fetch("/api/support", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
         body: JSON.stringify({
           email,
           message,

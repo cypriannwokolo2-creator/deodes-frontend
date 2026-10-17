@@ -122,15 +122,15 @@ export default function PeopleDirectoryPage() {
   const [error, setError] = useState<string | null>(null)
   const pageSize = 4
 
+  // No public member-directory endpoint exists: the people shown here were
+  // hardcoded samples. Directory ships with the public-profile search
+  // backend; until then this page says so instead of showing fake members.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 400)
-    return () => clearTimeout(timer)
+    setLoading(false)
   }, [])
 
   const filteredPeople = useMemo(() => {
-    let result = [...MOCK_PEOPLE]
+    let result: Person[] = []
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -273,9 +273,9 @@ export default function PeopleDirectoryPage() {
             <Users className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-foreground">No members found</h3>
+            <h3 className="text-base font-semibold text-foreground">Member directory coming soon</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              No community members matched your search criteria. Try adjusting your query or tier filter.
+              There is no member directory yet — meanwhile, meet people inside your circles.
             </p>
           </div>
           <Button

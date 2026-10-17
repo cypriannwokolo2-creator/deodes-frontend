@@ -11,7 +11,7 @@ import {
 import { LOCALE_COOKIE, resolveLocale } from "@/lib/locale/locale-cookie"
 
 // Protected routes that require authentication
-const PROTECTED_PATHS = ["/circles", "/communities", "/wallet", "/settings", "/profile", "/notifications", "/contributions", "/payouts"]
+const PROTECTED_PATHS = ["/circles", "/communities", "/wallet", "/settings", "/profile", "/notifications", "/contributions", "/payouts", "/admin", "/governance", "/savings", "/people", "/referrals", "/reputation"]
 
 // Dev-only API routes backed by flat-file JSON storage.  These are useful
 // for local development but must never be reachable in a deployed environment.
@@ -44,6 +44,18 @@ function attachCsrfCookie(response: NextResponse, csrfToken: string) {
 
 function getAllowedOrigins(request: NextRequest): Set<string> {
   const origins = new Set([request.nextUrl.origin])
+  // Behind Traefik the browser's Origin is `scheme://Host`, but
+  // `nextUrl.origin` is NOT reliably the public origin here — empirically it
+  // never matches `https://app.deodes.com`, which 403'd every state-changing
+  // request from the app host (onramp sessions included). Reconstruct the
+  // origin the browser actually sends from the edge's forwarded headers
+  // (Traefik: passHostHeader + X-Forwarded-Proto on the websecure entrypoint).
+  const host = (request.headers.get("host") ?? "").trim()
+  if (host) {
+    const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0].trim()
+    const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http")
+    origins.add(`${proto}://${host}`)
+  }
   const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === "production" ? "https://deodes.com" : undefined)
   if (configuredAppUrl) {
     try {
@@ -51,6 +63,13 @@ function getAllowedOrigins(request: NextRequest): Set<string> {
     } catch {
       origins.add(configuredAppUrl)
     }
+  }
+  // Canonical hosts, derived independently of runtime env, so the app host is
+  // never excluded by a missing/mis-set NEXT_PUBLIC_APP_URL.
+  if (process.env.NODE_ENV === "production") {
+    origins.add("https://deodes.com")
+    origins.add("https://app.deodes.com")
+    origins.add("https://www.deodes.com")
   }
   if (process.env.NODE_ENV !== "production") {
     origins.add("http://localhost:3000")

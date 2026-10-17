@@ -89,7 +89,8 @@ describe("getJoinBlockReason", () => {
   })
 
   it("blocks legacy-rail circles even when open", () => {
-    expect(getJoinBlockReason(circle({ currency: "XLM" }), { moiScore: 999 })).toBe(
+    // Legacy rows from before the USDC-only migration carry a non-USDC code.
+    expect(getJoinBlockReason(circle({ currency: "EUR" as never }), { moiScore: 999 })).toBe(
       "legacy-rail",
     )
   })

@@ -20,6 +20,7 @@ import { Button, ButtonLink } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useGovernanceProposals } from "@/hooks/use-governance"
+import { useDebounce } from "@/hooks/use-debounce"
 import type { ProposalStatus } from "@/lib/governance-api"
 
 const statusTabs: { label: string; value: ProposalStatus }[] = [
@@ -32,25 +33,16 @@ const statusTabs: { label: string; value: ProposalStatus }[] = [
 export default function GovernancePage() {
   const [selectedStatus, setSelectedStatus] = useState<ProposalStatus>("all")
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [sortBy, setSortBy] = useState<"newest" | "votes" | "oldest">("newest")
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 3
 
-  const { data: proposals = [], isLoading, isError, refetch } = useGovernanceProposals(selectedStatus)
+  const { data: proposals = [], isLoading, isError, refetch } = useGovernanceProposals(selectedStatus, debouncedSearch)
 
   const filteredProposals = useMemo(() => {
     let result = [...proposals]
-
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          (p.category && p.category.toLowerCase().includes(q)),
-      )
-    }
 
     if (categoryFilter !== "all") {
       result = result.filter((p) => p.category?.toLowerCase() === categoryFilter.toLowerCase())
@@ -69,7 +61,7 @@ export default function GovernancePage() {
     })
 
     return result
-  }, [proposals, search, categoryFilter, sortBy])
+  }, [proposals, categoryFilter, sortBy])
 
   const totalPages = Math.ceil(filteredProposals.length / pageSize) || 1
   const paginatedProposals = useMemo(() => {

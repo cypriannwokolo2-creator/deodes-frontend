@@ -1,10 +1,12 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { useEffect } from "react"
 import { useAuthStore } from "@/stores/auth-store"
 import { PublicLayout } from "@/components/layout/public-layout"
 import { LandingHeroSkeleton } from "@/components/skeletons"
 import { DashboardSkeleton } from "@/components/skeletons"
+import { isApexHost, redirectToApp } from "@/lib/app-host"
 
 const LandingContent = dynamic(
   () => import("@/components/landing/landing-content").then((m) => m.LandingContent),
@@ -72,8 +74,24 @@ export function HomeContent({ isAppHost = false }: { isAppHost?: boolean }) {
     )
   }
 
-  // Auth resolved and user is authenticated
+  // Auth resolved and user is authenticated. The dashboard lives on the
+  // app host only: apex renders a holding skeleton while the hard
+  // navigation to app.deodes.com completes (middleware covers full page
+  // loads; this covers client-side auth transitions that never hit it).
+  useEffect(() => {
+    if (isAuthenticated && !isAppHost && isApexHost()) {
+      redirectToApp(window.location.pathname + window.location.search)
+    }
+  }, [isAuthenticated, isAppHost])
+
   if (isAuthenticated) {
+    if (!isAppHost && typeof window !== "undefined" && isApexHost()) {
+      return (
+        <DashboardLayout>
+          <DashboardSkeleton />
+        </DashboardLayout>
+      )
+    }
     return (
       <DashboardLayout>
         <DashboardContent />
